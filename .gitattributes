@@ -18,3 +18,4 @@ scripts/**/*.lua text eol=lf
 
 # Verilog/VHDL and docs are read by tools that do not care; leave them to
 # core.autocrlf so Windows editors behave normally.
+scripts/hooks/* text eol=lf

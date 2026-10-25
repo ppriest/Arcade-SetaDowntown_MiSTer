@@ -15,6 +15,7 @@ hardware, built with Quartus Prime 17.0.2 Lite for the DE10-nano:
   - [Out of scope for now](#out-of-scope-for-now)
 - [Hardware](#hardware)
   - [Video timing](#video-timing)
+  - [Floorplan](#floorplan)
 - [Screenshots](#screenshots)
 - [Installation](#installation)
 - [Status](#status)
@@ -40,7 +41,7 @@ hardware, built with Quartus Prime 17.0.2 Lite for the DE10-nano:
   * Gundhara and Oishii Puzzle: add a fake Flip Screen DIP
 
 * **Arcade-Seta_20260918.rbf / Arcade-SetaDowntown_20260918.rbf**
-  * Seta_Downtown core added: DownTown / Mokugeki (four sets), Twin Eagle, Arbalester, Meta Fox
+  * Seta_Downtown core added: DownTown / Mokugeki (four sets), Twin Eagle
   * 68000 is now fx68k, cycle-accurate; TG68K ran 3.5x too fast, and was causing issues
   * CRT width: Match 384 option removed
   * Sprites: games that flip their own sprite page (26 of 31, `scripts/sprctrl_scan.py`) have it copied at the flip. Fixes Strike Gunner's ship and asteroids, Mad Shark, and Gundhara's full-screen glitch under slowdown
@@ -114,8 +115,6 @@ Seta_Downtown games are a separate core, `SetaDowntown_*.rbf`. All are ROT270 wi
 | Wit's | 1989 | Athena (Visco license) | Seta | M68000 @ 8 MHz | 0 | Four players |
 | Dragon Unit / Castle of Dragon | 1989 | Athena / Seta | Seta | M68000 @ 8 MHz | 1× 4bpp | |
 | DownTown / Mokugeki | 1989 | Seta | Seta_Downtown | M68000 @ 8 MHz + W65C02 @ 2 MHz | 1× 4bpp | Rotary joysticks, Protection |
-| Arbalester | 1989 | Jordan I.S. / Seta | Seta_Downtown | M68000 @ 8 MHz + W65C02 @ 2 MHz | 1× 4bpp | |
-| Meta Fox | 1989 | Jordan I.S. / Seta | Seta_Downtown | M68000 @ 8 MHz + W65C02 @ 2 MHz | 1× 4bpp | Protection |
 | Thunder & Lightning | 1990 | Seta | Seta | M68000 @ 8 MHz | 0 | Has protection |
 | Pairs Love | 1991 | Athena / Nihon System | Seta | M68000 @ 8 MHz | 0 | 2048 palette entries |
 | Strike Gunner S.T.G | 1991 | Athena / Tecmo | Seta | M68000 @ 8 MHz | 1× 4bpp | |
@@ -207,6 +206,18 @@ Not every board measures the same:
 Some links discussing the hardware:
 * https://www.arcade-museum.com/manuf/Seta.html
 
+### Floorplan
+
+Where the logic sits on the Cyclone V, read from the compiled design with `scripts/floorplan.py` (blocks defined in `scripts/floorplan.json`). One cell per LAB, M10K or DSP site, coloured by the block owning most of it, brighter when fuller. The thin columns are M10K and DSP; the empty area at the top right is the HPS; grey is the MiSTer framework. LUT counts are combinational cells, two per ALM.
+
+Revision `Seta`, fitted 19 Sep 2026:
+
+![Floorplan of Seta](docs/floorplan/Seta.png)
+
+Revision `Seta_Downtown`, fitted 21 Sep 2026:
+
+![Floorplan of Seta_Downtown](docs/floorplan/Seta_Downtown.png)
+
 ## Screenshots
 
 ### Thundercade / Twin Formation
@@ -238,19 +249,6 @@ Some links discussing the hardware:
 ![downtown 20260918_214209-screen](docs/screenshots/downtown/20260918_214209-screen.png)
 ![downtown 20260918_214227-screen](docs/screenshots/downtown/20260918_214227-screen.png)
 ![downtown 20260918_214337-screen](docs/screenshots/downtown/20260918_214337-screen.png)
-
-### Arbalester
-
-![arbalest 20260918_214056-screen](docs/screenshots/arbalest/20260918_214056-screen.png)
-![arbalest 20260918_214137-screen](docs/screenshots/arbalest/20260918_214137-screen.png)
-![arbalest 20260918_214145-screen](docs/screenshots/arbalest/20260918_214145-screen.png)
-
-### Meta Fox
-
-![metafox 20260918_213757-screen](docs/screenshots/metafox/20260918_213757-screen.png)
-![metafox 20260918_213817-screen](docs/screenshots/metafox/20260918_213817-screen.png)
-![metafox 20260918_213831-screen](docs/screenshots/metafox/20260918_213831-screen.png)
-![metafox 20260918_213837-screen](docs/screenshots/metafox/20260918_213837-screen.png)
 
 ### Thunder & Lightning
 

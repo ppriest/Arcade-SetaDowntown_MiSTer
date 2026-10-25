@@ -65,13 +65,50 @@ from extract_romstart import SRC, blocks, region_records
 from build_region import region_image, region_inverted, region_size, zip_for
 import extract_dips
 
+
+_MAME_VERSION = None
+
+
+def mame_version():
+    """<mameversion> of the MAME the ROM definitions are checked against, from
+    `mame -version` ("0.289 (mame0289)" -> "0289"). MAME_DIR / MAME_EXE come from the
+    environment, then mister.env, then ~/.mister-core.env; never typed by hand."""
+    global _MAME_VERSION
+    if _MAME_VERSION:
+        return _MAME_VERSION
+    import os
+    import subprocess
+    here = Path(__file__).resolve().parent.parent
+    env = {}
+    for f in (Path(os.environ.get("MISTER_CORE_ENV") or Path.home() / ".mister-core.env"),
+              here / "mister.env"):
+        if f.exists():
+            for ln in f.read_text(encoding="utf-8", errors="replace").splitlines():
+                ln = ln.strip()
+                if ln and not ln.startswith("#") and "=" in ln:
+                    k, v = ln.split("=", 1)
+                    env[k.strip()] = v.strip().strip('"').strip("'")
+    exe = Path(os.environ.get("MAME_DIR") or env.get("MAME_DIR") or ".") / (
+        os.environ.get("MAME_EXE") or env.get("MAME_EXE") or "mame.exe")
+    try:
+        out = subprocess.run([str(exe), "-version"], capture_output=True, text=True,
+                             timeout=30).stdout
+    except OSError:
+        out = ""
+    m = re.match(r"\s*0\.(\d+)", out)
+    if not m:
+        sys.exit("cannot read the MAME version from %s: set MAME_DIR / MAME_EXE. The .mra "
+                 "<mameversion> is the MAME the ROM definitions are checked against." % exe)
+    _MAME_VERSION = "%04d" % int(m.group(1))
+    return _MAME_VERSION
+
 SDRAM_SV = REPO / "rtl" / "memory" / "seta_sdram_top.sv"
 CFG_SV = REPO / "rtl" / "seta_board_cfg.sv"
 ROMS = REPO / "roms"
 OUT_DIR = REPO / "releases"
 # Sets whose .mra goes to unsupported/, outside releases/ so deploy.py does
-# not install it: calibr50 has Jotego's cal50 core.
-UNSUPPORTED_SETS = ("calibr50",)
+# not install it: these overlap with Jotego's cores.
+UNSUPPORTED_SETS = ("calibr50", "arbalest", "metafox")
 
 # The order the regions occupy in the image. Their offsets come from the RTL.
 # ONE ORDER AND ONE BASE TABLE PER LAYOUT, because the two differ in more than
@@ -964,7 +1001,7 @@ def build_one(setname, mod, bases, gl, all_blocks, dip_blocks, out_dir, write):
     lines.append(f'    <name>{esc(info["title"])}</name>')
     lines.append(f'    <setname>{esc(setname)}</setname>')
     lines.append(f'    <rbf>{RBF_NAME}</rbf>')
-    lines.append(f'    <mameversion>0286</mameversion>')
+    lines.append(f'    <mameversion>{mame_version()}</mameversion>')
     lines.append(f'    <year>{esc(info["year"])}</year>')
     lines.append(f'    <manufacturer>{esc(info["maker"])}</manufacturer>')
     lines.append(f'    <category>Arcade</category>')
