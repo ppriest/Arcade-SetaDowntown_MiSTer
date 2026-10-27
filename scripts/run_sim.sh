@@ -8,7 +8,7 @@
 # file, so every bench in this project is written to be run from the repo
 # root and this script enforces it. A wrong CWD leaves ROMs all zeroes and
 # fails every check at once, which reads exactly like an RTL regression --
-# grep the log for `readmem` first (LESSONS_LEARNED, "Testbench discipline").
+# grep the log for `readmem` first.
 #
 # Everything is compiled with +define+SIMULATION +initreg=r+0 +initmem=r+0:
 # un-reset registers and memories start at zero, as they do on the FPGA,

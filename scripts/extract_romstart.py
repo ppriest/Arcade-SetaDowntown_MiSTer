@@ -9,8 +9,8 @@ Point MAME_SRC at the driver (default E:/mame/src/mame/seta/downtown.cpp).
 
 WHY EXTRACT RATHER THAN TYPE
 ----------------------------
-LESSONS_LEARNED is blunt about interleaves derived by reasoning, and hand
-transcription is the same risk in slower motion: 40-odd sets, four load forms,
+Interleaves derived by reasoning go wrong, and hand transcription is the
+same risk in slower motion: 40-odd sets, four load forms,
 and offsets that differ by one between the even and odd ROM of a pair. The
 driver is the authority, so read it.
 

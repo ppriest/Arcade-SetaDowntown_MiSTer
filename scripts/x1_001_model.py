@@ -42,9 +42,8 @@ WHAT THE CHIP ACTUALLY DOES, and the parts that are easy to get wrong:
   0x4000 tiles.
 
   THE BANK EXPRESSION IS `(ctrl2 ^ (~ctrl2 << 1)) & 0x40`, copied including
-  its operators. LESSONS_LEARNED, "Copy a driver's register expression
-  including its operators" -- this exact class of bug cost the Psikyo project a
-  layer-enable polarity hunt.
+  its operators: this class of bug cost the Psikyo project a layer-enable
+  polarity hunt.
 """
 import argparse
 import struct

@@ -55,7 +55,7 @@ The goal is the boards MAME covers in `downtown.cpp`, minus the ones that overla
 
 ### Game Notes
 
-* **DownTown** - The "GRS Super Joystick" option is for players using the GRS Super Joystick, set to its keystroke mode. 
+* **DownTown** - The "GRS Keystroke Mode" option is for players using the GRS Super Joystick, set to its keystroke mode. 
 
   * When it's on: Keyboard keys turn the stick. The Left and Right arrow keys rotate Player 1's stick, and C and V rotate Player 2's. In keystroke mode the GRS sends its spinner movement as exactly those key presses. When the setting is off, the core ignores these keys.
   * The rotation runs at the fastest rate. A held key steps the stick every 39 ms, the same as "Very Fast". It overrides the Rotary Speed setting, for the Rotate Left/Right buttons as well.

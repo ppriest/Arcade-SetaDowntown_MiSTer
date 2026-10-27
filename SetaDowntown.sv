@@ -82,7 +82,7 @@ localparam DEBUG_MENU_HIDE = 1'b1;
 wire debug_menu_hide = DEBUG_MENU_HIDE;
 localparam CORE_NAME = "Seta_Downtown";
 // rotary joysticks as the Ikari Warriors core has them (rtl/downtown/rotary_input.sv)
-`define CONF_ROT "H3O[114:113],Rotary Speed,Normal,Slow,Fast,Very Fast;", "H3O[115],GRS Super JoyStick (Keystroke Mode),Off,On;", "H3-;",
+`define CONF_ROT "H3O[114:113],Rotary Speed,Normal,Slow,Fast,Very Fast;", "H3O[115],GRS Keystroke Mode,Off,On;", "H3-;",
 `define CONF_J1 "J1,Button 1,Button 2,Rotate Left,Rotate Right,Button 5,Button 6,Start,Coin,Pause,Service;",
 localparam CONF_STR = {
 	CORE_NAME, ";;",
@@ -362,6 +362,27 @@ wire       core_hs, core_vs, core_hb, core_vb, core_de, core_ce;
 reg core_ce_d;
 always @(posedge clk_sys) core_ce_d <= core_ce;
 wire core_ce_v = core_ce | core_ce_d;
+
+// dt_coin: a Coin press starts five frames of coin, counted on vblank rise
+reg       core_vb_d;
+reg [1:0] dt_coin_btn_d = 2'b00;
+reg [2:0] dt_coin_left [0:1];
+always @(posedge clk_sys) begin
+	core_vb_d <= core_vb;
+	for (int c = 0; c < 2; c++) begin
+		dt_coin_btn_d[c] <= c ? joystick_1[11] : joystick_0[11];
+		if (reset) begin
+			dt_coin[c]      <= 1'b0;
+			dt_coin_left[c] <= 3'd0;
+		end else if ((c ? joystick_1[11] : joystick_0[11]) && !dt_coin_btn_d[c] && !dt_coin[c]) begin
+			dt_coin[c]      <= 1'b1;
+			dt_coin_left[c] <= 3'd5;
+		end else if (dt_coin[c] && core_vb && !core_vb_d) begin
+			if (dt_coin_left[c] == 3'd1) dt_coin[c] <= 1'b0;
+			dt_coin_left[c] <= dt_coin_left[c] - 3'd1;
+		end
+	end
+end
 
 wire [15:0] dbg_lines, dbg_sprites, dbg_fetches, dbg_overrun;
 wire [15:0] dbg_worst_line, dbg_worst_sprites, dbg_dropped;

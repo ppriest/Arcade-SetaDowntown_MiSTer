@@ -7,7 +7,7 @@
 
 HOW THIS AVOIDS THE CLASSIC .mra BUG
 ------------------------------------
-docs/LESSONS_LEARNED.md is blunt: on the Psikyo core, *every* interleave that
+On the Psikyo core, *every* interleave that
 was DERIVED by reasoning about byte order was wrong, and "it boots" is weak
 evidence because a wrong map can boot far enough to look plausible. So nothing
 here reasons about map digits. Instead:
@@ -641,15 +641,34 @@ def split_ports(ports, setname):
     return [hi, lo, cn]
 
 
-def dt_buttons(setname, block):
+# Button names per set, in joystick order (entry i is joystick bit 4 + i):
+# the game's own, from the manual, cabinet or flyer. A clone without an
+# entry takes its parent's. "Button N" marks a name not yet found.
+BUTTON_NAMES = {
+    "arbalest": ["Shot", "Bomb"],  # Arbalester
+    "calibr50": ["Rapid Fire", "Grenade", "Rotate Left", "Rotate Right"],  # Caliber 50 (Ver. 1.01)
+    "downtown": ["Punch", "Kick", "Rotate Left", "Rotate Right"],  # DownTown - Mokugeki (set 1)
+    "metafox":  ["Shot", "Bomb"],  # Meta Fox
+    "tndrcade": ["Shot", "Bomb"],  # Thundercade - Twin Formation
+    "twineagl": ["Shot", "Bomb"],  # Twin Eagle - Revenge Joe's Brother
+}
+
+
+def dt_buttons(setname, parent, block):
     """SetaDowntown.sv's input_layout 0 (common_type1) or 1 (common_type2),
     and a rotary joystick on buttons 3 and 4 -- DownTown's 12-position switch
     (IPT_POSITIONAL) or Caliber 50's uPD4701 count (IPT_DIAL), both stepped
-    by rtl/downtown/rotary_input.sv."""
-    names = ["Button 1", "Button 2"]
+    by rtl/downtown/rotary_input.sv. Names from BUTTON_NAMES, for the set or
+    its parent."""
+    n = 2
     if 'PORT_START("ROT1")' in block and ("IPT_POSITIONAL" in block or "IPT_DIAL" in block):
-        names += ["Rotate Left", "Rotate Right"]
-    n = len(names)
+        n = 4
+    names = BUTTON_NAMES.get(setname) or BUTTON_NAMES.get(parent)
+    if names is None:
+        sys.exit(f"{setname}: no BUTTON_NAMES entry for it or its parent")
+    if len(names) != n:
+        sys.exit(f"{setname}: BUTTON_NAMES has {len(names)} names, the ports "
+                 f"have {n} buttons")
     names = names + ["-"] * (6 - n) + ["Start", "Coin", "Pause", "Service"]
     default = ["A", "B", "X", "Y", "L", "R"][:n] + ["Start", "Select", "L", "R"]
     return (f'<buttons names="{esc(",".join(names))}" '
@@ -896,7 +915,7 @@ def build_one(setname, mod, bases, gl, all_blocks, dip_blocks, out_dir, write):
         lines.append(f'        {dip}')
     lines.append('    </switches>')
     lines.append('')
-    lines.append('    ' + dt_buttons(setname, dip_blocks[info["inputs"]]))
+    lines.append('    ' + dt_buttons(setname, info["parent"], dip_blocks[info["inputs"]]))
     if setname in NVRAM_SETS:
         # The framework keeps a file of this size per .mra: it downloads it
         # into the core at index 4 after the ROM and reads it back when the
