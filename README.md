@@ -30,6 +30,12 @@ the same chipset without a sub CPU), which carries the history up to the split.
 
 ## History
 
+* **Arcade-SetaDowntown_20261027.rbf**
+  * First release from this repository, split out of [Arcade-Seta_MiSTer](https://github.com/ppriest/Arcade-Seta_MiSTer)
+  * Button names from the games in the controller mapping
+  * OSD: "GRS Super Joystick (Keystroke Mode)" is now "GRS Keystroke Mode", so its setting fits on the line
+  * MiSTer framework (`sys/`) updated to the current template
+
 * **Arcade-SetaDowntown_20260921.rbf**
   * Thundercade: Revert the attempt to fix the sprite flickering. It turns out that it's correct precisely as it was (it draws the sprites to RAM every other frame/30Hz whilst rendering at 60Hz, leading to rendering mid-write [PCB recording](https://www.youtube.com/watch?v=g4TswNhGXjM))
 
@@ -125,7 +131,7 @@ Some links discussing the hardware:
 
 Where the logic sits on the Cyclone V, read from the compiled design with `scripts/floorplan.py` (blocks defined in `scripts/floorplan.json`). One cell per LAB, M10K or DSP site, coloured by the block owning most of it, brighter when fuller. The thin columns are M10K and DSP; the empty area at the top right is the HPS; grey is the MiSTer framework. LUT counts are combinational cells, two per ALM.
 
-Revision `SetaDowntown`, fitted 21 Sep 2026 (before the split):
+Revision `SetaDowntown`, fitted 27 Oct 2026:
 
 ![Floorplan of SetaDowntown](docs/floorplan/SetaDowntown.png)
 
@@ -150,7 +156,7 @@ Revision `SetaDowntown`, fitted 21 Sep 2026 (before the split):
 
 ## Installation
 
-* Take the latest `*.rbf` from `releases/` and put it in `_Arcade/cores`, renamed to drop the `Arcade-` prefix: `Arcade-SetaDowntown_20260921.rbf` becomes `SetaDowntown_20260921.rbf`. The `.mra` files' `<rbf>SetaDowntown</rbf>` matches either name, but MiSTer launches the highest-sorting match, and any `SetaDowntown_*.rbf` sorts above every `Arcade-SetaDowntown_*.rbf`, so a prefixed copy left alongside is never used
+* Take the latest `*.rbf` from `releases/` and put it in `_Arcade/cores`, renamed to drop the `Arcade-` prefix: `Arcade-SetaDowntown_20261027.rbf` becomes `SetaDowntown_20261027.rbf`. The `.mra` files' `<rbf>SetaDowntown</rbf>` matches either name, but MiSTer launches the highest-sorting match, and any `SetaDowntown_*.rbf` sorts above every `Arcade-SetaDowntown_*.rbf`, so a prefixed copy left alongside is never used
 * Take the `*.mra` files from `releases/` and subdirs and put them in `_Arcade`
 * Put the MAME merged or split ROMs in `games/mame`
 
@@ -165,17 +171,17 @@ See `docs/MAME_DIVERGENCE.md` for cases that are considered 'hacks' from MAME, a
 ### Todo
 
 - [ ] `hiscore.v` support, savestates
-- [ ] Button names for the Downtown boards (`scripts/check_inputs.py` flags Thundercade)
+- [ ] Thundercade: `scripts/check_inputs.py` flags both sets
 - [ ] U.S. Classic: two trackballs through a uPD4701, colour PROMs, 6bpp tiles
 
 ### Resource usage
 
-Whole core (the `SetaDowntown_stp` revision, which adds the debug probes), on the DE10-nano's
-Cyclone V 5CSEBA6, speed grade 7:
+Whole core (`Arcade-SetaDowntown_20261027.rbf`), on the DE10-nano's Cyclone V 5CSEBA6, speed
+grade 7:
 
 | resource | used | available |
 | --- | --- | --- |
-| Logic (ALMs) | 37,000 (88%) | 41,910 |
+| Logic (ALMs) | 37,385 (89%) | 41,910 |
 | Block memory bits | 2,755,344 (49%) | 5,662,720 |
 | RAM blocks | 367 (66%) | 553 |
 | DSP blocks | 41 (37%) | 112 |
