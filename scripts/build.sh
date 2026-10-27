@@ -29,7 +29,7 @@ for _c in "${QUARTUS_BIN:-}"           /c/intelFPGA_lite/17.0/quartus/bin64     
 	[ -n "$_c" ] && [ -x "$_c/quartus_sh.exe" ] && Q="$_c" && break
 done
 [ -n "$Q" ] || { echo "Quartus not found. Set QUARTUS_BIN."; exit 1; }
-REV=Seta
+REV=SetaDowntown
 OUT=output_files
 
 mode="${1:-full}"

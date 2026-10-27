@@ -13,33 +13,14 @@
 package seta_board_pkg;
 	// Memory maps. Must agree with scripts/mame_capture.py's FAMILIES table.
 	typedef enum logic [4:0] {
-		BOARD_TWO_LAYER = 5'd0,   // rezon_map / zingzip_map / wrofaero_map
-		BOARD_DAIOH     = 5'd1,   // daioh_map      -- work RAM at 0x100000
-		BOARD_EXTDWNHL  = 5'd2,   // extdwnhl_map   -- palette at 0x600400
-		BOARD_KAMENRID  = 5'd3,   // kamenrid_map   -- vregs at 0x600003
-		BOARD_MSGUNDAM  = 5'd4,   // msgundam_map   -- sprites and tilemaps swap
-		BOARD_BLANDIA   = 5'd5,   // blandia_map
-		BOARD_BLANDIAP  = 5'd6,   // blandiap_map   -- NOT blandia_map
-		BOARD_DRGNUNIT  = 5'd7,   // drgnunit_map   -- one layer, two work RAMs
-		BOARD_THUNDERL  = 5'd8,   // thunderl_map   -- no layers
-		BOARD_WITS      = 5'd9,   // wits_map       -- thunderl plus spare RAM
-		BOARD_UMANCLUB  = 5'd10,  // umanclub_map   -- NOT thunderl_map
-		BOARD_BLOCKCAR  = 5'd11,  // blockcar_map
-		BOARD_OISIPUZL  = 5'd14,  // oisipuzl_map   -- palette and sound swap
-		BOARD_MAGSPEED  = 5'd15,  // magspeed_map   -- almost every base moves
-		BOARD_ATEHATE   = 5'd12,  // atehate_map    -- 1 MB of work RAM
-		BOARD_PAIRLOVE  = 5'd13,  // pairlove_map   -- 2048 palette entries,
-		                          //                   plus a protection RAM
-		BOARD_MADSHARK  = 5'd16,  // madshark_map   -- kamenrid's registers,
-		                          //                   magspeed's inputs
-		BOARD_ZOMBRAID  = 5'd17,  // zombraid_map   -- zingzip_map plus the
-		                          //                   gun ADC at 0xf00000
-		// downtown.cpp downtown_map (downtown, twineagl, metafox, arbalest);
-		// its sub CPU, tile bank and control registers are decoded in seta_core
+		// downtown_map (downtown, twineagl, metafox, arbalest); its sub CPU,
+		// tile bank and control registers are decoded in seta_core. The
+		// numbering is seta_board_cfg's from before the split, kept so the
+		// .mra mod bytes and scripts/maincpu_sweep.py still line up.
 		BOARD_DOWNTOWN  = 5'd18,
-		// downtown.cpp calibr50_map: X1-010 on the 65C02, battery RAM, uPD4701
+		// calibr50_map: X1-010 on the 65C02, battery RAM, uPD4701
 		BOARD_CALIBR50  = 5'd19,
-		// downtown.cpp tndrcade_map: no tile layer, sound on the 65C02
+		// tndrcade_map: no tile layer, sound on the 65C02
 		BOARD_TNDRCADE  = 5'd20
 	} board_t;
 endpackage
@@ -87,9 +68,7 @@ module maincpu (
 	// hold the access in S_MEM3 (DTACK late) until the read data is current
 	input  wire         io_hold,
 
-	// zombraid ADC0834 inputs {GUNY2, GUNX2, GUNY1, GUNX1}, decoded here: io_sel
 	// is full
-	input  wire  [31:0] gun_ch,
 
 	// 0 = none
 	input  wire  [2:0]  ipl_level,
@@ -201,7 +180,6 @@ module maincpu (
 	// thunderl protection PAL
 	logic        has_tprot;
 	// zombraid ADC0834: gun_w 0xf00000, gun_r 0xf00002
-	logic        has_gun;
 	// palette SRAM size: 16 KB (kamenrid, magspeed) or 64 KB (rezon, zingzip,
 	// daioh maps); power-on tests walk it
 	logic [23:0] xram_span;
@@ -245,7 +223,6 @@ module maincpu (
 		in_base      = 24'h400000;  dsw_base   = 24'h600000;
 		wdog_base    = NONE;
 		has_tprot    = 1'b0;
-		has_gun      = 1'b0;
 		xram_span    = 24'h4000;
 		pal2_base    = NONE;
 		in_span      = 5'd6;        coins_hi   = 1'b0;
@@ -257,226 +234,6 @@ module maincpu (
 		board_unmapped = 1'b0;
 
 		case (board)
-			BOARD_TWO_LAYER: begin                   // rezon_map / wrofaero_map
-				has_xram = 1'b1;
-				xram_span = 24'h10000;               // the 64 KB chip
-				has_tails = 1'b1;
-				// wrofaero_map: PIT at 0xd00000 (rezon has none)
-				pit_base = 24'hD00000;
-			end
-
-			// zombraid_map: zingzip_map plus the gun ADC, no PIT
-			BOARD_ZOMBRAID: begin                    // zombraid_map
-				has_xram = 1'b1;
-				xram_span = 24'h10000;
-				has_tails = 1'b1;
-				has_gun = 1'b1;
-			end
-
-			BOARD_DAIOH: begin                       // daioh_map
-				has_xram = 1'b1;
-				xram_span = 24'h10000;               // the 64 KB chip
-				has_tails = 1'b1;
-				// daioh_map: 1 MB ROM, work RAM at 0x100000
-				rom_end   = 24'h0FFFFF;
-				wram_base = 24'h100000; wram_end = 24'h10FFFF;
-				has_extra = 1'b1;       extra_base = 24'h500006;
-				wram2_base = NONE;      has_wram2 = 1'b0;
-			end
-
-			BOARD_EXTDWNHL: begin                    // extdwnhl_map
-				has_xram = 1'b1;
-				has_tails = 1'b1;
-				vram_span    = 24'h10000;            // to 0x80ffff / 0x88ffff
-				sprcode_span = 24'h14000;            // to 0xb13fff
-				pal_base = 24'h600400; pal_end = 24'h600FFF;
-				dsw_base = 24'h400008;
-				// X1-010 at 0xe00000
-				x1_base  = 24'hE00000;
-				// extdwnhl_watchdog_r: its POST uses the value as a fill count
-				wdog_base = 24'h40000C;
-			end
-
-			BOARD_KAMENRID: begin                    // kamenrid_map
-				has_xram = 1'b1;
-				has_tails = 1'b1;
-				rom_end    = 24'h07FFFF;
-				vregs_base = 24'h600000;
-				in_base    = 24'h500000;
-				dsw_base   = 24'h500004;
-				in_span    = 5'd10;  coins_hi = 1'b1;
-				wram_end   = 24'h20FFFF;
-				wram2_base = NONE; has_wram2 = 1'b0;
-				// kamenrid_map: PIT 0xc00000, X1-010 0xd00000
-				x1_base    = 24'hD00000;
-				pit_base   = 24'hC00000;
-			end
-
-			BOARD_MSGUNDAM: begin                    // msgundam_map
-				// 64 KB mirrored over 0x70000
-				wram_end     = 24'h27FFFF;
-				wram_mask    = 24'h00FFFF;
-				wram2_base   = NONE; has_wram2 = 1'b0;
-				spry_base    = 24'h800000; sprc_base = 24'h800600;
-				sprcode_base = 24'h900000;
-				l0v_base     = 24'hA00000; l1v_base  = 24'hA80000;
-				l0c_base     = 24'hB00000; l1c_base  = 24'hB80000;
-				vregs_base   = 24'h500004;
-				// PIT at 0xd00000, IPL 4
-				pit_base     = 24'hD00000;
-			end
-
-			// oisipuzl_map: palette 0xc00400, X1-010 0x700000, DSW 0x300000
-			BOARD_OISIPUZL: begin                    // oisipuzl_map
-				rom_end    = 24'h17FFFF;             // two ROM ranges, 0 and 0x100000
-				wram_end   = 24'h20FFFF;
-				wram2_base = NONE; has_wram2 = 1'b0; // 0x300000 is the DSW here
-				dsw_base   = 24'h300000;
-				x1_base    = 24'h700000;
-				pal_base   = 24'hC00400; pal_end = 24'hC00FFF;
-			end
-
-			// magspeed_map: inputs 0x500000, DSW 0x500008, vregs 0x500015, acks in the same block; PIT/X1-010 as kamenrid
-			BOARD_MADSHARK: begin                    // madshark_map
-				rom_end    = 24'h0FFFFF;
-				wram_end   = 24'h20FFFF;
-				wram2_base = NONE; has_wram2 = 1'b0;
-				// COINS +4, DSW +8
-				in_base    = 24'h500000;
-				dsw_base   = 24'h500008;
-				vregs_base = 24'h600000;
-				// no palette SRAM, no tails
-				x1_base    = 24'hD00000;
-				pit_base   = 24'hC00000;
-			end
-
-			BOARD_MAGSPEED: begin                    // magspeed_map
-				has_xram = 1'b1; has_tails = 1'b1;
-				rom_end    = 24'h07FFFF;
-				wram_end   = 24'h20FFFF;
-				wram2_base = NONE; has_wram2 = 1'b0;
-				in_base    = 24'h500000;
-				dsw_base   = 24'h500008;
-				// vregs_base + vregs_ofs = 0x500015; clear of the acks at 0x500018/c
-				vregs_base = 24'h500010;
-				x1_base    = 24'hD00000;
-				pit_base   = 24'hC00000;
-			end
-
-			BOARD_BLANDIA: begin                     // blandia_map
-				has_xram = 1'b1;
-				has_tails = 1'b1;
-				spry_base    = 24'h800000; sprc_base = 24'h800600;
-				sprcode_base = 24'h900000;
-				l0c_base     = 24'hA00000; l1c_base  = 24'hA80000;
-				l0v_base     = 24'hB00000; l1v_base  = 24'hB80000;
-				// second palette RAM 0x703c00-0x7047ff, entry 0x600
-				pal2_base = 24'h703C00;
-			end
-
-			BOARD_BLANDIAP: begin                    // blandiap_map
-				// blandiap: default layer layout
-				has_xram = 1'b1;
-				has_tails = 1'b1;
-				wram_end = 24'h21FFFF;               // two blocks, contiguous
-				pal2_base = 24'h703C00;
-			end
-
-			BOARD_DRGNUNIT: begin                    // drgnunit_map
-				rom_end    = 24'h0FFFFF;
-				wram_base  = 24'hF00000; wram_end  = 24'hF0FFFF;
-				wram2_base = 24'hFFC000; wram2_end = 24'hFFFFFF;
-				pal_base   = 24'h700000; pal_end   = 24'h7003FF;
-				l0c_base   = 24'h800000; l0v_base  = 24'h900000;
-				l1c_base   = NONE;       l1v_base  = NONE;  has_l1 = 1'b0;
-				spry_base  = 24'hD00000; sprc_base = 24'hD00600;
-				sprcode_base = 24'hE00000;
-				x1_base    = 24'h100000;
-				in_base    = 24'hB00000;
-			end
-
-			BOARD_THUNDERL, BOARD_WITS: begin        // thunderl_map / wits_map
-				// thunderl_map only
-				has_tprot  = (board == BOARD_THUNDERL);
-				rom_end    = 24'h0FFFFF;
-				wram_base  = 24'hFFC000; wram_end  = 24'hFFFFFF;
-				// wits: P3 +8, P4 +0xa
-				in_span    = (board == BOARD_WITS) ? 5'd12 : 5'd6;
-				wram2_base = (board == BOARD_WITS) ? 24'hE04000 : NONE;
-				wram2_end  = 24'hE07FFF;
-				has_wram2  = (board == BOARD_WITS);
-				pal_base   = 24'h700000; pal_end   = 24'h7003FF;
-				l0v_base = NONE; l1v_base = NONE; l0c_base = NONE; l1c_base = NONE;
-				has_l0 = 1'b0; has_l1 = 1'b0;
-				spry_base  = 24'hD00000; sprc_base = 24'hD00600;
-				sprcode_base = 24'hE00000;
-				x1_base    = 24'h100000;
-				in_base    = 24'hB00000;
-				vregs_base = NONE;
-			end
-
-			BOARD_UMANCLUB: begin                    // umanclub_map
-				rom_end    = 24'h0FFFFF;
-				wram_end   = 24'h20FFFF;
-				// umanclub_map: RAM at 0x300400-0x300fff above the palette
-				wram2_base = 24'h300400; wram2_end = 24'h300FFF;
-				has_wram2  = 1'b1;
-				pal_base   = 24'h300000; pal_end = 24'h3003FF;
-				l0v_base = NONE; l1v_base = NONE; l0c_base = NONE; l1c_base = NONE;
-				has_l0 = 1'b0; has_l1 = 1'b0;
-				vregs_base = NONE;
-			end
-
-			BOARD_BLOCKCAR: begin                    // blockcar_map
-				// inputs 0x500000, DSW 0x300000
-				in_base    = 24'h500000; dsw_base = 24'h300000;
-				rom_end    = 24'h0FFFFF;
-				wram_base  = 24'hF00000; wram_end = 24'hF03FFF;
-				// backup RAM blocks 0xf04000 and 0xf05000, one window
-				wram2_base = 24'hF04000; wram2_end = 24'hF05FFF;
-				has_wram2  = 1'b1;
-				pal_base   = 24'hB00000; pal_end  = 24'hB003FF;
-				l0v_base = NONE; l1v_base = NONE; l0c_base = NONE; l1c_base = NONE;
-				has_l0 = 1'b0; has_l1 = 1'b0;
-				sprcode_base = 24'hC00000;
-				spry_base    = 24'hE00000; sprc_base = 24'hE00600;
-				x1_base      = 24'hA00000;
-				vregs_base   = NONE;
-			end
-
-			BOARD_ATEHATE: begin                     // atehate_map
-				rom_end    = 24'h0FFFFF;
-				// atehate_map declares 1 MB; the game uses 0x900061-0x909a19 and
-				// 0x9fff7b-0x9ffffb, which a 64 KB mirror keeps apart
-				wram_base  = 24'h900000; wram_end = 24'h9FFFFF;
-				wram_mask  = 24'h00FFFF;
-				wram2_base = NONE; has_wram2 = 1'b0;
-				pal_base   = 24'h700000; pal_end  = 24'h7003FF;
-				l0v_base = NONE; l1v_base = NONE; l0c_base = NONE; l1c_base = NONE;
-				has_l0 = 1'b0; has_l1 = 1'b0;
-				spry_base  = 24'hA00000; sprc_base = 24'hA00600;
-				sprcode_base = 24'hE00000;
-				x1_base    = 24'h100000;
-				in_base    = 24'hB00000;
-				vregs_base = NONE;
-			end
-
-			BOARD_PAIRLOVE: begin                    // pairlove_map
-				// pairlove: 2048-entry palette
-				rom_end    = 24'h03FFFF;
-				wram_base  = 24'hF00000; wram_end = 24'hF0FFFF;
-				wram2_base = NONE; has_wram2 = 1'b0;
-				pal_base   = 24'hB00000; pal_end  = 24'hB00FFF;
-				l0v_base = NONE; l1v_base = NONE; l0c_base = NONE; l1c_base = NONE;
-				has_l0 = 1'b0; has_l1 = 1'b0;
-				sprcode_base = 24'hC00000;
-				spry_base  = 24'hE00000; sprc_base = 24'hE00600;
-				x1_base    = 24'hA00000;
-				in_base    = 24'h500000;  dsw_base = 24'h300000;
-				prot_base  = 24'h900000;
-				vregs_base = NONE;
-			end
-
 			BOARD_DOWNTOWN: begin                    // downtown.cpp downtown_map
 				rom_end    = 24'h09FFFF;
 				// declared 0xf00000-0xffffff; the games write 0xf00000-0xf03fff
@@ -595,18 +352,6 @@ module maincpu (
 	                         tp[2]};                         // 0
 	logic [7:0] tprot_reg;
 
-	// zombraid ADC0834: gun_w 0xf00000 (bit 0 CLK, 1 DI, 2 /CS), gun_r 0xf00002 (DO)
-	wire is_gun_w = has_gun && (q_a[23:1] == 23'h780000);   // 0xf00000
-	wire is_gun_r = has_gun && (q_a[23:1] == 23'h780001);   // 0xf00002
-	logic [2:0] gun_reg;
-	wire        gun_do;
-
-	adc0834 u_adc (
-		.clk(clk), .reset(reset),
-		.cs_n(gun_reg[2]), .sclk(gun_reg[0]), .di(gun_reg[1]), .dout(gun_do),
-		.ch0(gun_ch[7:0]), .ch1(gun_ch[15:8]), .ch2(gun_ch[23:16]), .ch3(gun_ch[31:24])
-	);
-
 	wire [23:0] xram_base = pal_base - 24'h400;
 	wire is_xram    = has_xram && (q_a >= xram_base) && (q_a < xram_base + xram_span);
 
@@ -643,7 +388,7 @@ module maincpu (
 	logic [15:0] q_wdata;
 	logic        q_we, q_uds, q_lds;
 	logic        q_wram, q_wram_wel, q_wram_weh;
-	logic        q_wdog, q_tprot, q_gun;
+	logic        q_wdog, q_tprot;
 	logic [19:1] q_wram_addr;
 	logic [15:0] q_sel;
 
@@ -665,7 +410,6 @@ module maincpu (
 			dbg_sent  <= 1'b0;
 			rd_data   <= 16'h0000;
 			tprot_reg <= 8'h00;
-			gun_reg   <= 3'b100;             // /CS high: the ADC idle
 		end else begin
 			case (state)
 				S_IDLE: begin
@@ -700,12 +444,10 @@ module maincpu (
 					q_wram      <= is_wram;
 					q_wdog      <= is_wdog;
 					q_tprot     <= is_tprot_r;
-					q_gun       <= is_gun_r;
 					// Each arm sized explicitly: the main offset must wrap in 11 bits
 					// (the xram window below the palette), pal2 needs 15.
 					pal_index_w <= is_pal2 ? pal_off_2 : {1'b0, pal_off_main};
 					if (is_tprot_w && acc_write) tprot_reg <= tprot_next;
-					if (is_gun_w && acc_write && !n_lds) gun_reg <= cpu_dout[2:0];
 					q_wram_addr <= wram_off[19:1];
 					q_wram_wel  <= is_wram && acc_write && !n_lds;
 					q_wram_weh  <= is_wram && acc_write && !n_uds;
@@ -720,7 +462,6 @@ module maincpu (
 				S_MEM4: begin
 					rd_data   <= q_wdog  ? 16'hFFFF
 					           : q_tprot ? {8'd0, tprot_reg}
-					           : q_gun   ? {15'd0, gun_do}
 					           : q_wram  ? wram_rdata : io_rdata;
 					acc_ready <= 1'b1;
 					state     <= S_DONE;

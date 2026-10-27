@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read the X1-001 sprite RAM out of a running Seta_stp build, as capture files.
+"""Read the X1-001 sprite RAM out of a running SetaDowntown_stp build, as capture files.
 
     python scripts/dump_sprram.py qzkklogy debug/hw/sprram-bad
     python scripts/x1_001_model.py qzkklogy debug/hw/sprram-bad --png out.png

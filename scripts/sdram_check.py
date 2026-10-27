@@ -4,7 +4,7 @@
     python scripts/sdram_check.py gundhara            # launch, then 24 samples
     python scripts/sdram_check.py gundhara --no-launch --samples 48
 
-Probe B on the Seta_stp revision records the last gfx2 granule the layer-0
+Probe B on the SetaDowntown_stp revision records the last gfx2 granule the layer-0
 tile engine consumed, with its 64 bits of data. This launches the game (unless
 told not to), lets the engine run, then repeatedly reads that pair and compares
 the data against the region assembled by scripts/build_region.py from the ROM

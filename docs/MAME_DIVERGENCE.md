@@ -277,27 +277,6 @@ addresses with 0 mismatches.
 An undecoded read is not automatically harmless just because the game boots
 past it.
 
-### extdwnhl's fourth work-RAM block is not decoded
-
-`extdwnhl_map` declares four 64 KB blocks of plain RAM:
-
-    map(0x200000, 0x20ffff).ram();
-    map(0x210000, 0x21ffff).ram();
-    map(0x220000, 0x23ffff).ram();   // "RAM (sokonuke)"
-
-256 KB in all. This core decodes 128 KB (0x200000-0x21ffff) and leaves
-0x220000-0x23ffff undecoded, because the work RAM is M10K and 128 KB of it is
-already ~128 of the device's 553 blocks against 419 used by everything else.
-
-Measured before deciding: a write tap over 0x220000-0x23ffff across 1440
-frames of sokonuke's attract mode records zero accesses, and the set runs on
-hardware. Both sets on this map are 6bpp and both were checked. If a mode
-nobody has reached does use the block, the symptom is the one an unbacked
-region always gives -- a failed power-on memory test, not corruption.
-
-The two blocks that ARE decoded are backed separately rather than mirrored;
-see the work-RAM comment in rtl/seta_core.sv for what mirroring them cost.
-
 ### The per-game position offsets are kludges, and they are carried verbatim
 
 Every machine_config in `seta.cpp` calls some of
@@ -497,77 +476,6 @@ Tried on hardware and reverted:
   board flickering.
 * Reading sprite RAM live, per line, as Jotego's X1-001 does
   (`jtkiwi_gfx.v`): worse on hardware. It draws the same mixed RAM.
-
-### Flip Screen on Gundhara and Oishii Puzzle is the core's own
-
-Neither board has a flip DIP (MAME's ports), and Gundhara's program has no
-flip setting (no flip or screen strings in its main CPU ROMs). Their `.mra`s
-get a Flip Screen switch in a fourth switch byte (`build_mra.py`
-`CORE_FLIP_SETS`, `sw[3]` bit 0), and `seta_video.sv` rotates the whole
-picture 180 degrees for it: every engine renders the visible line mirrored
-about the visible area and the line buffers are read right to left, latched
-at vblank (as Arcade-Psikyo 9f70427). Setting the X1-001's flip bit instead
-flipped each sprite in place and moved the tilemaps off screen: the games
-that flip move everything else themselves. Right on hardware for both
-(Seta_10000070).
-
-### atehate work RAM is 64 KB, not 1 MB
-
-`atehate_map` declares a megabyte at 0x900000–0x9fffff. Measured from a capture
-of the whole window during play: the game touches 0x900061–0x909a19 and
-0x9fff7b–0x9ffffb only, which under a 64 KB mirror lands at 0x0061–0x9a19 and
-0xff7b–0xfffb with zero collisions.
-
-### zombraid's battery RAM is 256 bytes, saved when the OSD next opens
-
-`zombraid_map` shares the whole of 0x300000–0x30ffff as `"nvram"` and MAME
-writes all 64 KB to disk at exit. The game uses 128 bytes of it: the low
-lane of 0x300100–0x3001ff behind a write-enable latch at 0x3000f0 (decoded
-in docs/ROADMAP.md, "What the battery RAM actually holds"). The core saves
-that 256-byte window through the framework's `<nvram index="4" size="256"/>`
-file: restored by an index-4 download after the ROM, and requested for
-upload when the game closes the latch after writing inside the window --
-the end of its SAVE routine. MiSTer services the request when the OSD is
-next opened (`MENU_SAVE_CHECK` polls `UIO_CHK_UPLOAD`) or on "Save
-settings", so a calibration done in service mode reaches the SD card at the
-next OSD visit, not at power-off. The latch itself is not modelled: the
-window is plain RAM to the CPU.
-
-### zombraid's guns are sticks and d-pads
-
-seta.cpp's `GUNX1`/`GUNY1`/`GUNX2`/`GUNY2` are `IPT_LIGHTGUN_X/Y`, 0..255,
-0x80 at rest, X `PORT_REVERSE`. The core holds a position per player and
-moves it from hps_io's left analog stick (absolute, `0x7f - x`, `0x80 + y`,
-past a dead zone of 8) or the d-pad (two units a frame, clamped); releasing
-either leaves the position where it was, where MAME's analog port would
-return to centre. Each axis is independent and takes its direction input
-first: an earlier single condition wrote both axes from either one, which
-reset Y on every left or right press.
-
-Three kinds of controller say "left" three different ways here -- a digital
-panel sets the joystick bit, an arcade panel behind a gamepad encoder sends
-no bit and puts the stick on the left USB axis at full deflection, and a
-real analog stick sends whatever it is pushed to -- so the OSD carries a
-per-player setting. Auto reads a fully deflected axis as a direction and
-anything less as a position; Aim always positions; D-pad never does. The ADC itself (`rtl/cpu/adc0834.sv`) is MAME's
-`adc083x.cpp` state machine and is not a divergence -- `sim/adc0834_tb`
-replays two frames of the game's own `gun_w` words through it -- the input
-source is. A mouse or lightgun path is a follow-up.
-
-### zombraid's OSD crosshair reads the game's aim out of work RAM
-
-The game turns the ADC values into calibrated screen positions and keeps
-them at 0x20c4aa/0x20c4ac (P1 X/Y) and 0x20c4ae/0x20c4b0 (P2), placing its
-own reticle sprites from those words. The core's crosshair option reads the
-same words through a second port on work RAM and draws at (X, 255 - Y):
-measured against MAME snapshots of the name-entry reticle at five gun
-positions (`scripts/gun_find.py`), the reticle's centre is at column X and
-between rows 255-Y and 254-Y. This is the "pointer for zombraid crosshair
-hack" MAME's work-RAM share comment refers to, revived: it ties the overlay
-to one ROM revision's RAM layout (the US 9/28/95 set; the prototypes' code
-is stated to be the same), and it can affect nothing the game does. The
-raw-value alternative (MAME's PORT_CROSSHAIR convention) cannot match the
-game's own reticle, because the calibration lives in the game.
 
 ### Screen flip is the unflipped frame rotated 180 degrees
 

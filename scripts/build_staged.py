@@ -19,12 +19,12 @@ The build is exactly HEAD:
   * the built commit is written to build/BUILT_COMMIT beside the log, so
     every .rbf maps to one commit.
 
-    python scripts/build_staged.py                 # compile HEAD, Seta_stp
-    python scripts/build_staged.py --rev Seta      # the release revision
+    python scripts/build_staged.py                 # compile HEAD, SetaDowntown_stp
+    python scripts/build_staged.py --rev SetaDowntown  # the release revision
     python scripts/build_staged.py --seed 12345    # try another placement
     python scripts/build_staged.py --allow-dirty   # HEAD, ignoring edits
 
-TWO REVISIONS, one source. Seta_stp.qsf defines DEBUG_ISSP: the six ISSP
+TWO REVISIONS, one source. SetaDowntown_stp.qsf defines DEBUG_ISSP: the six ISSP
 probes are built and the OSD's Debug page is visible. Seta.qsf does not, so
 the release build compiles the probes, their ring buffer and their counters
 out and hides the page. The default here is the instrumented one, because
@@ -32,14 +32,14 @@ that is what bring-up iterates on; ship the other.
 
 Outputs, all inside the stage, named after the revision:
     build/q_staged.log                     the build log (deploy.py's gate reads it)
-    build/output_files/Seta_stp.rbf        the bitstream
-    build/output_files/Seta_stp.sta.summary
+    build/output_files/SetaDowntown_stp.rbf        the bitstream
+    build/output_files/SetaDowntown_stp.sta.summary
     build/BUILT_COMMIT                     commit, time and SEED
 
 Deploy it by pointing deploy.py at the stage:
     python scripts/deploy.py --rbf-only --log build/q_staged.log \\
-        --rbf build/output_files/Seta_stp.rbf \\
-        --sta build/output_files/Seta_stp.sta.summary
+        --rbf build/output_files/SetaDowntown_stp.rbf \\
+        --sta build/output_files/SetaDowntown_stp.sta.summary
 
 The worktree persists between builds -- Quartus's db/ with it, which costs
 nothing for full compiles and avoids re-checkout churn -- and each run
@@ -60,7 +60,7 @@ QUARTUS_BIN = os.environ.get(
     "QUARTUS_BIN", r"C:\intelFPGA_lite\17.0\quartus\bin64")
 # The revision being built; main() replaces it from --rev. Every output path
 # and the .qsf the seed is patched into are named after it.
-REV = "Seta_stp"
+REV = "SetaDowntown_stp"
 
 
 def run(cmd, **kw):
@@ -174,8 +174,8 @@ def check_present(stage):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--rev", default="Seta_stp",
-                    help="Quartus revision: Seta_stp (default) builds the "
+    ap.add_argument("--rev", default="SetaDowntown_stp",
+                    help="Quartus revision: SetaDowntown_stp (default) builds the "
                          "ISSP probes and the Debug page, Seta is the "
                          "release build with both compiled out")
     ap.add_argument("--seed", type=int,

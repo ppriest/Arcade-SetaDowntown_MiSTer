@@ -43,7 +43,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 REMOTE_CORES = "/media/fat/_Arcade/cores"
 # The .mra files live in their own folder, clones in _alternatives beneath it.
-REMOTE_ARCADE = "/media/fat/_Arcade/_Seta"
+REMOTE_ARCADE = "/media/fat/_Arcade/_Seta_Downtown"
 SUCCESS = "Full Compilation was successful"
 
 # Sets that are built but cannot yet run are held back from the device, so a
@@ -205,7 +205,9 @@ def check_build(rbf, log, sta, allow_timing_miss=False):
 # no number is reused. A plain Seta.rbf or Arcade-Seta.rbf from before the
 # numbering is moved aside to .held rather than left to compete.
 # ---------------------------------------------------------------------------
-RBF_STEM = "Seta"
+# not Seta_*: the Seta core's .mra files carry <rbf>Seta</rbf>, which MiSTer
+# resolves to Arcade-Seta* or Seta* (mra_loader.cpp get_rbf)
+RBF_STEM = "SetaDowntown"
 RBF_FIRST = 10000001
 
 
@@ -241,10 +243,6 @@ def main():
     ap.add_argument("--all", action="store_true",
                     help="also deploy .mra files listed in HELD_BACK_SETS "
                          "(sets that are built but known not to run yet)")
-    ap.add_argument("--core", choices=("seta", "downtown"), default="seta",
-                    help="downtown: the Seta_Downtown core -- SetaDowntown_N.rbf "
-                         "and the .mra files whose <rbf> is SetaDowntown, to "
-                         "_Arcade/_Seta_Downtown")
     ap.add_argument("--mra-only", action="store_true")
     ap.add_argument("--rbf-only", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
@@ -255,12 +253,7 @@ def main():
                     help="deploy despite failed build checks -- say why")
     a = ap.parse_args()
 
-    global RBF_STEM, REMOTE_ARCADE
     rel = REPO / "releases"
-    if a.core == "downtown":
-        # not Seta_*: the Seta .mra files' <rbf>Seta</rbf> would match it
-        RBF_STEM = "SetaDowntown"
-        REMOTE_ARCADE = "/media/fat/_Arcade/_Seta_Downtown"
 
     env = load_env(REPO / "mister.env")
     m = Mister(env, a.dry_run)

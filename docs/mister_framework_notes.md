@@ -4,7 +4,7 @@
 > apply unchanged. The `[core]` and `[empirical]` items were verified on that project, and the
 > **status-bit allocations listed below are Psikyo's, not this core's** — they are kept only as a
 > worked example of how to lay a map out. Re-derive this core's own allocation from scratch and
-> replace that section once `Seta.sv` has a CONF_STR. Likewise every file path named here
+> replace that section once `SetaDowntown.sv` has a CONF_STR. Likewise every file path named here
 > (`Psikyo.sv`, `rtl/video/screen_rotate_two.sv`) refers to that repository.
 
 Distilled from the official developer docs

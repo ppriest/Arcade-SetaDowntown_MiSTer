@@ -5,7 +5,7 @@
     python scripts/extract_romstart.py gundhara daioha  # just these
     python scripts/extract_romstart.py --region gfx1 thunderl atehate
 
-Point MAME_SRC at the driver (default E:/mame/src/mame/seta/seta.cpp).
+Point MAME_SRC at the driver (default E:/mame/src/mame/seta/downtown.cpp).
 
 WHY EXTRACT RATHER THAN TYPE
 ----------------------------
@@ -33,7 +33,7 @@ import os
 import re
 import sys
 
-SRC = os.getenv("MAME_SRC", "E:/mame/src/mame/seta/seta.cpp")
+SRC = os.getenv("MAME_SRC", "E:/mame/src/mame/seta/downtown.cpp")
 
 KINDS = {
     "ROM_LOAD16_BYTE": "load16_byte",

@@ -176,10 +176,10 @@ module tb_maincpu_sdram;
 	wire [23:1] dbg_addr;
 	wire [15:0] dbg_data;
 
-	int board_sel = 8;    // BOARD_THUNDERL
+	int board_sel = 18;   // BOARD_DOWNTOWN
 
 	maincpu dut (
-		.clk(clk), .reset(core_reset), .board(board_sel[4:0]), .cpu_half(4'(CE_DIV / 2)), .cpu_run(1'b1), .gun_ch(32'h80808080),
+		.clk(clk), .reset(core_reset), .board(board_sel[4:0]), .cpu_half(4'(CE_DIV / 2)), .cpu_run(1'b1),
 		.rom_req(rom_req), .rom_addr(rom_addr),
 		.rom_valid(rom_valid), .rom_data(rom_data),
 		.wram_addr(wram_addr), .wram_wel(wram_wel), .wram_weh(wram_weh),

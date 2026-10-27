@@ -29,29 +29,11 @@ REPO = Path(__file__).resolve().parent.parent
 
 # set -> board index, from seta_board_pkg in rtl/cpu/maincpu.sv.
 BOARDS = {
-    # downtown.cpp (BOARD_DOWNTOWN)
     "downtown": 18, "downtown2": 18, "downtownj": 18, "downtownp": 18,
     "twineagl": 18, "metafox": 18, "arbalest": 18,
     "calibr50": 19, "tndrcade": 20, "tndrcadej": 20,
-    "rezon": 0, "rezono": 0, "zingzip": 0, "wrofaero": 0, "gundhara": 0,
-    "gundharac": 0, "jjsquawk": 0, "jjsquawko": 0, "zombraid": 17,
-    "zombraidp": 17, "zombraidpj": 17, "daiohc": 0, "daiohp": 0, "daiohp2": 0,
-    "daioh": 1, "daioha": 1,
-    "extdwnhl": 2, "sokonuke": 2,
-    "kamenrid": 3, "madshark": 3,
-    "msgundam": 4, "msgundam1": 4,
-    "blandia": 5,
-    "blandiap": 6,
-    "drgnunit": 7, "stg": 7, "qzkklogy": 7, "qzkklgy2": 7,
-    "thunderl": 8, "thunderla": 8,
-    "wits": 9,
-    "umanclub": 10, "neobattl": 10,
-    "blockcar": 11,
-    "atehate": 12,
-    "pairlove": 13,
-    "oisipuzl": 14,
-    "magspeed": 15,
 }
+
 
 # One representative per family, for the default run.
 BASH = "bash"
@@ -80,9 +62,7 @@ def find_bash():
              "is WSL's, which cannot run the Windows ModelSim binaries.)")
 
 
-ONE_PER_FAMILY = ["gundhara", "daioh", "extdwnhl", "kamenrid", "msgundam",
-                  "blandia", "blandiap", "drgnunit", "thunderl", "wits",
-                  "umanclub", "blockcar", "atehate", "pairlove"]
+ONE_PER_FAMILY = ["downtown", "calibr50", "tndrcade"]
 
 
 def owner_zip():

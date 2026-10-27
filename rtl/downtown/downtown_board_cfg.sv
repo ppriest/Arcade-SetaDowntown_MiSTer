@@ -66,11 +66,6 @@ module downtown_board_cfg (
 	output logic        gfx1_invert,
 	output logic  [2:0] ack_level,
 	output logic  [2:0] input_layout,
-	output logic        has_prot,
-	output logic        has_tl_prot,
-	output logic [23:0] tl_prot_base,
-	output logic [23:0] tl_prot_size,
-	output logic [23:0] tl_prot_rd,
 	output logic signed [8:0] fg_xoffs, fg_xoffs_flip, fg_yoffs, fg_yoffs_flip,
 	output logic signed [8:0] bg_xoffs, bg_xoffs_flip, bg_yoffs, bg_yoffs_flip,
 	output logic [12:0] bank_size,
@@ -129,11 +124,6 @@ module downtown_board_cfg (
 	assign tilemaps_flip   = 1'b0;
 	assign narrow_320      = 1'b0;
 	assign gfx1_invert     = 1'b0;
-	assign has_prot        = 1'b0;
-	assign has_tl_prot     = 1'b0;
-	assign tl_prot_base    = 24'h0;
-	assign tl_prot_size    = 24'h0;
-	assign tl_prot_rd      = 24'hFFFFFF;
 
 	// as seta_board_cfg.sv
 	assign fg_yoffs      =  9'sd14;

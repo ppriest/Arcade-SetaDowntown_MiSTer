@@ -1,6 +1,7 @@
-# Seta_Downtown: MAME's `seta/downtown.cpp` as a second core
+# The `seta/downtown.cpp` boards
 
-Same repository, second Quartus revision and top level (`Seta_Downtown.sv`),
+This core's boards and what each one needs. Split out of Arcade-Seta_MiSTer,
+where it began as a second Quartus revision of the Seta core (`SetaDowntown.sv`),
 sharing `rtl/` with the Seta core. Only what the hardware changes is new.
 
 ## Games

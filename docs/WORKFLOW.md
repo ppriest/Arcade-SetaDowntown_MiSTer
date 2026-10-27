@@ -30,18 +30,18 @@ Three properties matter and must survive the port:
 
 ### Two revisions from one source
 
-`Seta_stp` is the instrumented revision and `Seta` the release one. The only difference between the
+`SetaDowntown_stp` is the instrumented revision and `SetaDowntown` the release one. The only difference between the
 two `.qsf` files is `VERILOG_MACRO "DEBUG_ISSP=1"`: with it the six ISSP probes are built and the
 OSD's Debug page is visible, without it the probes, their ring buffer, their counters and the menu
 page all compile out. No `#ifdef` clutter in the middle of the logic — the guard sits around the
-probe instances in `Seta.sv` and around one `localparam` that drives `status_menumask`.
+probe instances in `SetaDowntown.sv` and around one `localparam` that drives `status_menumask`.
 
 ```
-python scripts/build_staged.py               # Seta_stp, the default
-python scripts/build_staged.py --rev Seta    # the release build
+python scripts/build_staged.py               # SetaDowntown_stp, the default
+python scripts/build_staged.py --rev SetaDowntown    # the release build
 ```
 
-Outputs are named after the revision (`build/output_files/Seta_stp.rbf`), so the two never
+Outputs are named after the revision (`build/output_files/SetaDowntown_stp.rbf`), so the two never
 overwrite each other.
 
 ### The fitter seed is part of the build, and it is recorded

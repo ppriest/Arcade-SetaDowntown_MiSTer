@@ -274,7 +274,7 @@ hardware.
 - **The core exists, and it runs a real game.** `rtl/seta_core.sv` ties the CPU, interrupts,
   sprites, palette, video timing, sound and SDRAM together; `rtl/seta_board_cfg.sv` turns the
   `.mra` mod byte into every per-game constant, including which of maincpu.sv's memory maps to
-  use; `Seta.sv` is now the real top level (hps_io, PLL, inputs, DIPs, arcade_video, rotation)
+  use; `SetaDowntown.sv` is now the real top level (hps_io, PLL, inputs, DIPs, arcade_video, rotation)
   with Template_MiSTer's demo core deleted.
 
   Two pieces of game-specific hardware came out of this: thunderl's protection register
@@ -320,7 +320,7 @@ hardware.
 
   The first compile missed timing by **-7.954 ns** with **all thirty worst paths inside
   `TG68KdotC_Kernel`** -- the same shape as Phase 0's *unconstrained* measurement. Not the sprite
-  engine, not the video path, not the SDRAM: `Seta.sdc` was still the template's two lines, and
+  engine, not the video path, not the SDRAM: `SetaDowntown.sdc` was still the template's two lines, and
   Phase 0's audited multicycle had only ever existed in `rtl/synth_check/`. Carrying it across:
   **-7.954 -> -3.956**. Registering the CPU interface into `x1_001`, `seta_palette` and
   `seta_prot_pairlove`: **-3.956 -> -1.751**.
@@ -362,7 +362,7 @@ hardware.
   pinned down. `x1_001_sweep.py --flip` fails it explicitly rather than passing it.
 
 Not started: any hardware.
-`Seta.sv` is still Template_MiSTer's demo core. The rest of this document is a plan, not a status
+`SetaDowntown.sv` is still Template_MiSTer's demo core. The rest of this document is a plan, not a status
 report.
 
 What *has* been done is the driver analysis this document records: the hardware tables, the memory

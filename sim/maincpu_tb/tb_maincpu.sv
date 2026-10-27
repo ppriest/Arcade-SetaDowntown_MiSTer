@@ -80,10 +80,10 @@ module tb_maincpu;
 	// or ran out of time" after 44 of 160 reads -- which names the CPU, and
 	// the CPU was fine.
 	logic [7:0] boardimg [0:0];
-	int board_sel = 8;
+	int board_sel = 18;
 
 	maincpu dut (
-		.clk(clk), .reset(reset), .board(board_sel[4:0]), .cpu_half(4'(CE_DIV / 2)), .cpu_run(1'b1), .gun_ch(32'h80808080),
+		.clk(clk), .reset(reset), .board(board_sel[4:0]), .cpu_half(4'(CE_DIV / 2)), .cpu_run(1'b1),
 		.rom_req(rom_req), .rom_addr(rom_addr),
 		.rom_valid(rom_valid), .rom_data(rom_data),
 		.wram_addr(wram_addr), .wram_wel(wram_wel), .wram_weh(wram_weh),

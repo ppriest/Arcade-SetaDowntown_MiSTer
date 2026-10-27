@@ -30,7 +30,7 @@ its own `--help` and docstring.
 | `deploy.py` | works | copy the `.rbf` and `.mra` files to a MiSTer. Prints every clock's slack first and refuses a bitstream the build did not actually produce. Cores land as `Arcade-Seta_NNNNNNNN.rbf`, numbered from 10000001 and read back from the device, so earlier builds stay as fallbacks — rename the newest to `.held` to drop back one |
 | `report_worst_paths.tcl` | works | `quartus_sta -t scripts/report_worst_paths.tcl Seta` — the 15 worst `clk_sys` setup paths from the compiled database, no recompile |
 | `run_sim.sh` | works | compile the RTL and run one testbench, from the repository root. Rebuilds the `work` library every run (a killed run leaves `work/_lock`, on which every later `vlog` waits silently). Adapted: a vcom step for TG68K.C (kernel only, not the bus wrapper), no T80, no jotego cores |
-| `cfg.py` | works\* | set OSD status bits in a per-core `.CFG` by read-modify-write, so untouched bits survive. \*The bit map is PROVISIONAL until `Seta.sv` has a CONF_STR |
+| `cfg.py` | works\* | set OSD status bits in a per-core `.CFG` by read-modify-write, so untouched bits survive. \*The bit map is PROVISIONAL until `SetaDowntown.sv` has a CONF_STR |
 | `read_issp.tcl` | works\* | read the JTAG probe / write its source bus. \*The field table is PROVISIONAL — replace it from the real probe bus when one exists |
 
 ## MAME as a reference generator

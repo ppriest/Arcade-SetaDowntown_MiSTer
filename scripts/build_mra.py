@@ -172,31 +172,25 @@ LAYOUT_OVERRIDE = {"jjsquawk": 0, "jjsquawko": 0}
 
 
 # ---------------------------------------------------------------------------
-# downtown.cpp (the Seta_Downtown core): selected by pointing MAME_SRC at it.
-#     MAME_SRC=E:/mame/src/mame/seta/downtown.cpp python scripts/build_mra.py
-# Its own game numbering (downtown_board_cfg.sv), one layout, its own rbf and
-# folder.
+# downtown.cpp: its own game numbering (downtown_board_cfg.sv), one ROM
+# layout, its own rbf name.
 # ---------------------------------------------------------------------------
-DOWNTOWN = os.path.basename(SRC) == "downtown.cpp"
-RBF_NAME = "Seta"
-if DOWNTOWN:
-    CFG_SV = REPO / "rtl" / "downtown" / "downtown_board_cfg.sv"
-    # the same releases/ as seta.cpp's; <rbf> tells the cores apart
-    # (deploy.py picks by it)
-    OUT_DIR = REPO / "releases"
-    # NOT "Seta_Downtown": MiSTer resolves <rbf>X</rbf> to Arcade-X or X
-    # followed by '.' or '_' (Main_MiSTer mra_loader.cpp get_rbf), so the Seta
-    # .mra files' <rbf>Seta</rbf> would also match Seta_Downtown_*.rbf
-    RBF_NAME = "SetaDowntown"
-    LAYOUTS["G"] = (["maincpu", "sprites", "tiles", "x1snd", "sub"],
-                    {"maincpu": "BASE_MAINCPU", "sprites": "BASE_GFX1_AB",
-                     "tiles": "BASE_GFX2_G", "x1snd": "BASE_X1SND_G",
-                     "sub": "BASE_SUB_G"})
+CFG_SV = REPO / "rtl" / "downtown" / "downtown_board_cfg.sv"
+# NOT "Seta_Downtown": MiSTer resolves <rbf>X</rbf> to Arcade-X or X followed
+# by '.' or '_' (Main_MiSTer mra_loader.cpp get_rbf), so the Seta core's
+# <rbf>Seta</rbf> would also match Seta_Downtown_*.rbf
+RBF_NAME = "SetaDowntown"
+LAYOUTS["G"] = (["maincpu", "sprites", "tiles", "x1snd", "sub"],
+                {"maincpu": "BASE_MAINCPU", "sprites": "BASE_GFX1_AB",
+                 "tiles": "BASE_GFX2_G", "x1snd": "BASE_X1SND_G",
+                 "sub": "BASE_SUB_G"})
 
 
 def layout_of(setname):
-    if DOWNTOWN:
-        return "G"
+    return "G"
+
+
+def _unused_layout_of(setname):
     if setname in LAYOUT_F_SETS:
         return "F"
     if setname in LAYOUT_E_SETS:
@@ -257,8 +251,7 @@ CLONE_OF = {
     "gundharac": "gundhara",
     "jjsquawko": "jjsquawk",
 }
-if DOWNTOWN:
-    CLONE_OF = {}      # every downtown.cpp set in scope has its own DT_* entry
+CLONE_OF = {}      # every downtown.cpp set in scope has its own DT_* entry
 
 
 def clone_regions_match(child, parent, all_blocks):
@@ -929,7 +922,7 @@ def build_one(setname, mod, bases, gl, all_blocks, dip_blocks, out_dir, write):
         if not recs and region_size(body, region) is None:
             # tndrcade has neither: X1-001 only, and YM sound on the 65C02.
             # The image pads over them to the next region's base.
-            if DOWNTOWN and region in ("tiles", "x1snd"):
+            if region in ("tiles", "x1snd"):
                 truths[region] = b""
                 all_groups[region] = []
                 continue
@@ -1123,11 +1116,7 @@ def build_one(setname, mod, bases, gl, all_blocks, dip_blocks, out_dir, write):
         lines.append(f'        {dip}')
     lines.append('    </switches>')
     lines.append('')
-    if DOWNTOWN:
-        lines.append('    ' + dt_buttons(setname, dip_blocks[info["inputs"]]))
-    else:
-        lines.append('    ' + buttons_xml(LAYOUT_OVERRIDE.get(setname) if setname in LAYOUT_OVERRIDE
-            else input_layout(setname, dip_blocks[info["inputs"]], dip_blocks)))
+    lines.append('    ' + dt_buttons(setname, dip_blocks[info["inputs"]]))
     if setname in NVRAM_SETS:
         # The framework keeps a file of this size per .mra: it downloads it
         # into the core at index 4 after the ROM and reads it back when the
