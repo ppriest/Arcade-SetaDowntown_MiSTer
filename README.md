@@ -236,7 +236,7 @@ Standard [Template_MiSTer](https://github.com/MiSTer-devel/Template_MiSTer) stru
 
 GPL v3 (see `LICENSE`). Imported components keep their own licences and are GPLv3-compatible:
 TG68K.C (LGPLv3+), the adapted SDR SDRAM controller (Sorgelig, GPL-3.0-or-later),
-`screen_rotate_two.sv` (Sorgelig, GPLv2), `crt_adjust.sv` (rmonic79, GPL-3.0-or-later), and the MiSTer framework in `sys/`.
+`screen_rotate_two.sv` (Sorgelig, GPLv2 or later), `crt_adjust.sv` (rmonic79, GPL-3.0-or-later), and the MiSTer framework in `sys/`.
 
 Game ROMs contain copyrighted material and are not included. Obtaining them is your
 responsibility.
