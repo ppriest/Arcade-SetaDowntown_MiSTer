@@ -55,9 +55,8 @@ SETA_LAYOUT = {
 }
 DT_LAYOUT = {"twineagl": 0}      # others 1
 
-# MAME inputs left unwired on purpose: (set, port, bit). jjsquawk's BUTTON3
-# is read nowhere by the game (build_mra.py LAYOUT_OVERRIDE).
-UNWIRED_OK = {(s, p, 6) for s in ("jjsquawk", "jjsquawko") for p in ("P1", "P2")}
+# MAME inputs left unwired on purpose: (set, port, bit)
+UNWIRED_OK = set()
 
 
 def token_src(tok):

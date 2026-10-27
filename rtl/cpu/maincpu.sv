@@ -43,7 +43,7 @@ module maincpu (
 	input  wire         rom_valid,
 	input  wire  [15:0] rom_data,
 
-	// work RAM, up to atehate's 1 MB window (masked by wram_mask)
+	// work RAM, masked by wram_mask
 	output logic [19:1] wram_addr,
 	output logic        wram_wel, wram_weh,
 	output logic [15:0] wram_wdata,
@@ -55,20 +55,15 @@ module maincpu (
 	output logic        io_we,
 	output logic [23:1] io_addr,
 	// palette index as a word, formed here where the full address exists
-	// (blandia's second window straddles 4 KB pages)
 	output logic [11:0] pal_index_w,
-	// COINS at in_base+8 (kamenrid)
+	// COINS at in_base+8 (calibr50)
 	output wire         coins_at8,
-	// daioh's EXTRA port
-	output logic        io_extra,
 	output logic [15:0] io_wdata,
 	output logic        io_uds, io_lds,
 	output logic [15:0] io_sel,
 	input  wire  [15:0] io_rdata,
 	// hold the access in S_MEM3 (DTACK late) until the read data is current
 	input  wire         io_hold,
-
-	// is full
 
 	// 0 = none
 	input  wire  [2:0]  ipl_level,
@@ -98,11 +93,7 @@ module maincpu (
 	localparam int IO_INPUTS   = 10;  // P1 / P2 / COINS
 	localparam int IO_DSW      = 11;
 	localparam int IO_WRAM2    = 12;  // the second work RAM block, where present
-	localparam int IO_XRAM     = 13;  // RAM above the palette, where MAME maps one
-	// pairlove's write-history block
-	localparam int IO_PROT     = 14;
-	// uPD71054C
-	localparam int IO_PIT      = 15;
+	// 13-15: seta_core's palette SRAM, protection and PIT slots, unused here
 
 	// declared before the instance: a port connection to an undeclared name is
 	// inferred as a net by ModelSim even under `default_nettype none`, and the
@@ -172,34 +163,12 @@ module maincpu (
 	logic [23:0] spry_base, sprc_base, sprcode_base;
 	logic [23:0] l0v_base, l1v_base, l0c_base, l1c_base;
 	logic [23:0] x1_base;
-	logic [23:0] pit_base;
 	logic [23:0] vregs_base;
 	logic [23:0] in_base, dsw_base;
-	// extdwnhl watchdog read, must return 0xFFFF
-	logic [23:0] wdog_base;
-	// thunderl protection PAL
-	logic        has_tprot;
-	// zombraid ADC0834: gun_w 0xf00000, gun_r 0xf00002
-	// palette SRAM size: 16 KB (kamenrid, magspeed) or 64 KB (rezon, zingzip,
-	// daioh maps); power-on tests walk it
-	logic [23:0] xram_span;
-	// blandia's second palette RAM, at entry 0x600
-	logic [23:0] pal2_base;
-	// input window size, per map (wits P3/P4, kamenrid COINS at +8)
+	// input window size, per map (calibr50 COINS at +8)
 	logic  [4:0] in_span;
 	logic        coins_hi;
-	// daioh EXTRA, carved out of the vregs window
-	logic        has_extra;
-	logic [23:0] extra_base;
-	logic [23:0] prot_base;
 	logic        has_l0, has_l1, has_wram2;
-	// has_xram: 16 KB palette SRAM at pal_base - 0x400 (Group C self-tests)
-	logic        has_xram;
-	// has_tails: VRAM and sprite code windows widened to their 32 KB SRAMs (kamenrid, magspeed)
-	logic        has_tails;
-	// RAM declared behind VRAM/sprite code beyond the tails (extdwnhl: 48 KB, 64 KB),
-	// walked by its POST. Mirrored onto the existing arrays; 0 = none.
-	logic [23:0] vram_span, sprcode_span;
 	logic [23:0] wram_mask;
 	logic        board_unmapped;
 
@@ -207,7 +176,7 @@ module maincpu (
 	localparam logic [23:0] NONE = 24'hFFFFFF;
 
 	always_comb begin
-		// defaults: rezon_map / zingzip_map / wrofaero_map
+		// defaults, overridden per map
 		rom_end      = 24'h1FFFFF;
 		wram_base    = 24'h200000;  wram_end   = 24'h21FFFF;
 		wram_mask    = 24'h03FFFF;
@@ -218,19 +187,10 @@ module maincpu (
 		spry_base    = 24'hA00000;  sprc_base  = 24'hA00600;
 		sprcode_base = 24'hB00000;
 		x1_base      = 24'hC00000;
-		pit_base     = NONE;
 		vregs_base   = 24'h500000;
 		in_base      = 24'h400000;  dsw_base   = 24'h600000;
-		wdog_base    = NONE;
-		has_tprot    = 1'b0;
-		xram_span    = 24'h4000;
-		pal2_base    = NONE;
 		in_span      = 5'd6;        coins_hi   = 1'b0;
-		has_extra    = 1'b0;        extra_base = NONE;
-		prot_base    = NONE;
 		has_l0 = 1'b1; has_l1 = 1'b1; has_wram2 = 1'b1;
-		has_xram = 1'b0; has_tails = 1'b0;
-		vram_span = 24'h0; sprcode_span = 24'h0;
 		board_unmapped = 1'b0;
 
 		case (board)
@@ -299,61 +259,26 @@ module maincpu (
 	logic [23:0] q_a;
 	wire is_wram    = (q_a >= wram_base)  && (q_a <= wram_end);
 	wire is_wram2   = has_wram2 && (q_a >= wram2_base) && (q_a <= wram2_end);
-	wire is_pal2    = (pal2_base != NONE) && (q_a >= pal2_base)
-	               && (q_a <  pal2_base + 24'hC00);
 	wire [10:0] pal_off_main = q_a[11:1] - pal_base[11:1];
-	wire [11:0] pal_off_2    = 12'h600 + (q_a[15:1] - pal2_base[15:1]);
-	wire is_pal     = ((q_a >= pal_base) && (q_a <= pal_end)) || is_pal2;
-	wire is_prot    = (q_a >= prot_base)  && (q_a <  prot_base + 24'h400);
+	wire is_pal     = (q_a >= pal_base) && (q_a <= pal_end);
 	wire is_spry    = (q_a >= spry_base)  && (q_a <  spry_base + 24'h600);
 	wire is_sprc    = (q_a >= sprc_base)  && (q_a <  sprc_base + 24'h8);
-	wire [23:0] vwin = (vram_span != 24'h0) ? vram_span
-	                 : has_tails ? 24'h8000 : 24'h4000;
-	wire [23:0] swin = (sprcode_span != 24'h0) ? sprcode_span
-	                 : has_tails ? 24'h8000 : 24'h4000;
+	// VRAM and sprite code windows: 16 KB each
+	localparam logic [23:0] vwin = 24'h4000;
+	localparam logic [23:0] swin = 24'h4000;
 	wire is_sprcode = (q_a >= sprcode_base) && (q_a < sprcode_base + swin);
 	wire is_l0v     = has_l0 && (q_a >= l0v_base) && (q_a < l0v_base + vwin);
 	wire is_l1v     = has_l1 && (q_a >= l1v_base) && (q_a < l1v_base + vwin);
 	wire is_l0c     = has_l0 && (q_a >= l0c_base) && (q_a < l0c_base + 24'h6);
 	wire is_l1c     = has_l1 && (q_a >= l1c_base) && (q_a < l1c_base + 24'h6);
 	wire is_x1      = (q_a >= x1_base)    && (q_a <  x1_base + 24'h4000);
-	wire is_pit     = (pit_base != NONE) && (q_a >= pit_base)
-	               && (q_a <  pit_base + 24'h8);
-	wire is_extra   = has_extra && (q_a >= extra_base)
-	               && (q_a <  extra_base + 24'h2);
 	wire is_vregs   = (vregs_base != NONE) && (q_a >= vregs_base) &&
-	                  (q_a < vregs_base + 24'h8) && !is_extra;
-	// kamenrid's DSW sits inside the input span
-	wire is_inputs  = is_extra ||
-	                  (q_a >= in_base) && (q_a < in_base + {19'd0, in_span})
+	                  (q_a < vregs_base + 24'h8);
+	// coins_hi: COINS at +8, with +4..+7 a gap
+	wire is_inputs  = (q_a >= in_base) && (q_a < in_base + {19'd0, in_span})
 	               && !(coins_hi && (q_a >= in_base + 24'h4)
 	                             && (q_a <  in_base + 24'h8));
 	wire is_dsw     = (q_a >= dsw_base)   && (q_a <  dsw_base + 24'h4);
-	wire is_wdog    = (wdog_base != NONE) && (q_a >= wdog_base)
-	               && (q_a <  wdog_base + 24'h2);
-
-	// thunderl protection: writes to 0x400000-0x41ffff (address matters, data
-	// ignored), read at 0xb0000c
-	wire is_tprot_w = has_tprot && (q_a >= 24'h400000) && (q_a < 24'h420000);
-	wire is_tprot_r = has_tprot && (q_a >= 24'hB0000C) && (q_a < 24'hB0000E);
-
-	wire [16:0] tp  = q_a[16:0];        // 0x400000 is 17-bit aligned
-	wire tp_or6     = tp[2] | ~tp[6];
-	wire tp_or8     = tp[2] | ~tp[6] | ~tp[8];
-	wire tp_and13   = tp[6] & tp[13];
-	wire tp_or16    = tp_and13 | ~tp[16];
-	wire [7:0] tprot_next = {tp_or16 & tp_or8,              // 7
-	                         tp_or16,                        // 6
-	                         tp_and13,                       // 5
-	                         tp[3] & ~tp[11] & tp[15],       // 4
-	                         tp_or8,                         // 3
-	                         tp_or6,                         // 2
-	                         tp[2] & ~tp[3],                 // 1
-	                         tp[2]};                         // 0
-	logic [7:0] tprot_reg;
-
-	wire [23:0] xram_base = pal_base - 24'h400;
-	wire is_xram    = has_xram && (q_a >= xram_base) && (q_a < xram_base + xram_span);
 
 	// Bus sequencing. acc_ready is a held level, DTACK, until AS rises. RAM and
 	// I/O accesses take four cycles (S_MEM..S_MEM4): the request (address, data,
@@ -364,9 +289,7 @@ module maincpu (
 
 	wire [23:0] wram_off = (q_a - wram_base) & wram_mask;
 
-	wire [15:0] io_sel_comb = {is_pit,  // 15 IO_PIT
-	                   is_prot,       // 14 IO_PROT
-	                   is_xram,       // 13
+	wire [15:0] io_sel_comb = {3'b000,  // 15-13
 	                   is_wram2,      // 12
 	                   is_dsw,        // 11
 	                   is_inputs,     // 10
@@ -388,7 +311,6 @@ module maincpu (
 	logic [15:0] q_wdata;
 	logic        q_we, q_uds, q_lds;
 	logic        q_wram, q_wram_wel, q_wram_weh;
-	logic        q_wdog, q_tprot;
 	logic [19:1] q_wram_addr;
 	logic [15:0] q_sel;
 
@@ -409,7 +331,6 @@ module maincpu (
 			acc_ready <= 1'b0;
 			dbg_sent  <= 1'b0;
 			rd_data   <= 16'h0000;
-			tprot_reg <= 8'h00;
 		end else begin
 			case (state)
 				S_IDLE: begin
@@ -440,14 +361,8 @@ module maincpu (
 					q_uds       <= ~n_uds;
 					q_lds       <= ~n_lds;
 					q_sel       <= io_sel_comb;
-					io_extra    <= is_extra;
 					q_wram      <= is_wram;
-					q_wdog      <= is_wdog;
-					q_tprot     <= is_tprot_r;
-					// Each arm sized explicitly: the main offset must wrap in 11 bits
-					// (the xram window below the palette), pal2 needs 15.
-					pal_index_w <= is_pal2 ? pal_off_2 : {1'b0, pal_off_main};
-					if (is_tprot_w && acc_write) tprot_reg <= tprot_next;
+					pal_index_w <= {1'b0, pal_off_main};
 					q_wram_addr <= wram_off[19:1];
 					q_wram_wel  <= is_wram && acc_write && !n_lds;
 					q_wram_weh  <= is_wram && acc_write && !n_uds;
@@ -460,9 +375,7 @@ module maincpu (
 				end
 				S_MEM3: if (!io_hold) state <= S_MEM4;
 				S_MEM4: begin
-					rd_data   <= q_wdog  ? 16'hFFFF
-					           : q_tprot ? {8'd0, tprot_reg}
-					           : q_wram  ? wram_rdata : io_rdata;
+					rd_data   <= q_wram ? wram_rdata : io_rdata;
 					acc_ready <= 1'b1;
 					state     <= S_DONE;
 				end
@@ -489,7 +402,6 @@ module maincpu (
 
 	assign cpu_din    = rd_data;
 
-
 	assign coins_at8  = coins_hi;
 
 	assign rom_addr   = q_rom_addr;
@@ -506,7 +418,6 @@ module maincpu (
 	assign io_uds   = q_uds;
 	assign io_lds   = q_lds;
 	assign io_sel   = q_sel;
-	// all sixteen positions written out
 
 // synthesis translate_off
 	// simulation: a board value with no map
@@ -527,9 +438,6 @@ module maincpu (
 			if (pal_base != NONE && pal_base <= rom_end)
 				$fatal(1, "maincpu: board=%0d palette at %06x is inside ROM (rom_end %06x)",
 				       board, pal_base, rom_end);
-			if (has_xram && xram_base <= rom_end)
-				$fatal(1, "maincpu: board=%0d palette SRAM at %06x is inside ROM (rom_end %06x)",
-				       board, xram_base, rom_end);
 			if (x1_base != NONE && x1_base <= rom_end)
 				$fatal(1, "maincpu: board=%0d X1-010 at %06x is inside ROM (rom_end %06x)",
 				       board, x1_base, rom_end);

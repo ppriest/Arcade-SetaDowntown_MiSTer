@@ -1,9 +1,11 @@
-// The game: 68000 (maincpu.sv), video (seta_video.sv), X1-010 sound, PIT,
-// RAMs, protection, and the SDRAM backend. Per-game constants come from
-// seta_board_cfg.sv.
+// The game: 68000 (maincpu.sv), video (seta_video.sv), X1-010 sound, the
+// 65C02 sub system (downtown_sub.sv) with Thundercade's YMs, RAMs,
+// protection, and the SDRAM backend. Per-game constants come from
+// downtown_board_cfg.sv.
 //
 // Clock enables from clk_sys (96 MHz): CPU clk_sys / cpu_div (16 or 8 MHz),
-// X1-010 / 6 (16 MHz), dot clock / 12 (8 MHz), PIT / 96 (1 MHz).
+// X1-010 / 6 (16 MHz), dot clock / 12 (8 MHz), 65C02 / 48 (2 MHz), YMs / 24
+// (4 MHz).
 //
 // `reset` gates the CPU and video; the SDRAM path takes reset & ~ioctl_download,
 // because MiSTer holds reset through the ROM download.
@@ -41,7 +43,7 @@ module seta_core (
 	// battery RAM file (index 4): the 256 bytes at 0x300100-0x3001ff
 	output wire  [7:0] ioctl_din,
 	output logic       nvram_save,
-	// fast ROM load: Seta.sv owns the trigger and the DDR3 pins
+	// fast ROM load: SetaDowntown.sv owns the trigger and the DDR3 pins
 	input  wire        ldr_start,
 	output wire        ldr_active,
 	output wire        ldr_ddr_req,
@@ -52,13 +54,8 @@ module seta_core (
 
 	// driver port words, active low
 	input  wire [15:0] p1_in, p2_in, coins_in,
-	// daioh's EXTRA port at 0x500006
-	input  wire [15:0] extra_in,
-	input  wire [15:0] p3_in, p4_in,     // wits only
 	input  wire [15:0] dsw_in,
-	// the .mra's Flip Screen on sets whose board has no flip DIP (sw[3] bit 0)
-	input  wire        flip_sw,
-	// downtown.cpp: DownTown's rotary joysticks, positions 0..11
+	// DownTown's rotary joysticks, positions 0..11
 	input  wire  [3:0] rot1, rot2,
 	// Caliber 50's loop joysticks as the uPD4701 counts them, 4 a position
 	input  wire [11:0] dial1, dial2,
@@ -251,7 +248,6 @@ module seta_core (
 	wire [23:1] io_addr;
 	wire [11:0] pal_index_w;
 	wire        coins_at8;
-	wire        io_extra;
 	wire [15:0] io_wdata;
 	wire [15:0] io_sel;
 	logic [15:0] io_rdata;
@@ -268,7 +264,6 @@ module seta_core (
 		.wram_wdata(wram_wdata), .wram_rdata(wram_rdata),
 		.io_req(io_req), .io_we(io_we), .io_addr(io_addr), .io_wdata(io_wdata),
 		.pal_index_w(pal_index_w), .coins_at8(coins_at8),
-		.io_extra(io_extra),
 		.io_uds(io_uds), .io_lds(io_lds), .io_sel(io_sel), .io_rdata(io_rdata),
 		.io_hold(io_hold),
 		.ipl_level(ipl_level), .iack(iack), .iack_level(iack_level),
@@ -280,10 +275,7 @@ module seta_core (
 	localparam int IO_PALETTE = 0, IO_SPRYLOW = 1, IO_SPRCTRL = 2, IO_SPRCODE = 3;
 	localparam int IO_L0VRAM = 4, IO_L1VRAM = 5, IO_L0CTRL = 6, IO_L1CTRL = 7;
 	localparam int IO_VREGS = 9;
-	localparam int IO_PIT = 15;
 	localparam int IO_X1SND = 8, IO_INPUTS = 10, IO_DSW = 11, IO_WRAM2 = 12;
-	localparam int IO_PROT = 14;
-	localparam int IO_XRAM = 13;
 
 	always_ff @(posedge clk) begin
 		if (reset) begin
@@ -340,10 +332,8 @@ module seta_core (
 		end
 	end
 
-	// Work RAM, 128 KB (zingzip_map's two 64 KB blocks; gundhara uses the
-	// second). Larger declared windows (atehate's 1 MB) are mirrored by
-	// maincpu.sv. Registered in: maincpu reads in the third cycle of a RAM
-	// access.
+	// Work RAM, 128 KB; maincpu.sv mirrors the larger declared windows.
+	// Registered in: maincpu reads in the third cycle of a RAM access.
 	logic        m_wel, m_weh;
 	logic [19:1] m_addr;
 	logic [15:0] m_wdata;
@@ -358,15 +348,6 @@ module seta_core (
 		if (m_weh) wram[m_addr[16:1]][15:8] <= m_wdata[15:8];
 		wram_rdata <= wram[m_addr[16:1]];
 	end
-
-	// gundhara and oisipuzl have no flip DIP (build_mra.py CORE_FLIP_SETS);
-	// gated so a stale sw[3] from another set does nothing
-	wire         force_flip = 1'b0;
-
-	// not on the downtown.cpp boards (calibr50's battery RAM is in the
-	// downtown.cpp block)
-	wire [15:0] wram2_q = 16'h0, xram_q = 16'h0;
-	wire [15:0] l0_tail_q = 16'h0, l1_tail_q = 16'h0, code_tail_q = 16'h0;
 
 	wire         tile_req, tile1_req;
 	wire  [23:3] tile_addr, tile1_addr;
@@ -415,8 +396,7 @@ module seta_core (
 	// en_spr withholds the sprite engine's ROM data; the engine keeps running
 	wire spr_valid_g = spr_valid & en_spr;
 
-	// 2048 entries: blandia's second window writes 0x600-0xbff but only
-	// 0x600-0x7ff is read; seta_video drops the writes above.
+	// these maps use 512 palette entries of seta_video's 2048
 	seta_video #(.LB_W(11), .PAL_ENTRIES(2048)) u_video (
 		.clk(clk), .reset(reset), .ce_pix(ce_pix),
 		.htotal(htotal), .hs_start(hs_start), .hs_end(hs_end),
@@ -472,7 +452,7 @@ module seta_core (
 		.vregs(vregs), .tilemaps_flip(tilemaps_flip),
 		.tile_bank_en(dt_tile_bank_en), .tile_bank(dt_tile_bank),
 		.tile_raster(dt_tile_raster),
-		.force_flip(force_flip),
+		.force_flip(1'b0),
 
 		.code_we(io_req && io_we && io_sel[IO_SPRCODE] && !io_addr[14]),
 		.code_addr(dbg_rd_en ? dbg_rd_idx : io_addr[13:1]), .code_wdata(io_wdata),
@@ -508,7 +488,7 @@ module seta_core (
 		.dbg_dropped(dbg_dropped), .dbg_snap(dbg_snap)
 	);
 
-	// ---- downtown.cpp: the 65C02 system and the board's own registers ----
+	// The 65C02 system and the board's own registers
 	// map_board: 18 downtown_map, 19 calibr50_map, 20 tndrcade_map
 	wire dt_dtm = (map_board == 5'd18);
 	wire dt_c50 = (map_board == 5'd19);
@@ -710,11 +690,6 @@ module seta_core (
 	                    : (dt_mf_rel == 13'h1000) ? 16'h0010
 	                    : ({3'd0, dt_mf_rel} * 16'h1f);
 
-	wire pit_out0;
-	logic pit_out0_d;
-	always_ff @(posedge clk) pit_out0_d <= pit_out0;
-	wire  pit_rise = pit_out0 & ~pit_out0_d;
-
 	logic [7:1] irq_set, irq_hold, irq_clr;
 
 	always_comb begin
@@ -727,8 +702,6 @@ module seta_core (
 		if (irq_sl240_level != 3'd0 && irq_sl240_pulse) irq_set[irq_sl240_level] = 1'b1;
 		if (irq_sl112_level != 3'd0 && irq_sl112_pulse) irq_set[irq_sl112_level] = 1'b1;
 
-		// PIT OUT0 rising edge -> IPL 4, ASSERT_LINE
-		if (pit_rise) irq_set[3'd4] = 1'b1;
 		// calibr50: level 4 four times a frame, ASSERT_LINE
 		if (dt_l4_pulse) irq_set[3'd4] = 1'b1;
 
@@ -738,7 +711,7 @@ module seta_core (
 		if (irq_sl112_level != 3'd0) irq_hold[irq_sl112_level] = 1'b1;
 
 		// Board acknowledge, on read or write (ipl1_ack_r calls ipl1_ack_w)
-		// unless ack_wr_only. ack_d0_low: blockcar acknowledges only on a 0.
+		// unless ack_wr_only; ack_d0_low acknowledges only on a 0.
 		if (has_ack && io_req && io_addr == ack_addr && ack_level != 3'd0
 		    && (!ack_d0_low || !io_wdata[0]) && (!ack_wr_only || io_we))
 			irq_clr[ack_level] = 1'b1;
@@ -759,17 +732,6 @@ module seta_core (
 		.iack(iack), .iack_level(iack_level),
 		.ipl_level(ipl_level), .pending(dbg_irq_pending)
 	);
-
-	// uPD71054C: 1 MHz from clk_sys (the board's clock, not the CPU's)
-	logic  [6:0] pit_div = 7'd0;
-	wire         pit_ce  = (pit_div == 7'd0);
-	always_ff @(posedge clk) begin
-		if (reset)               pit_div <= 7'd0;
-		else if (pit_div == 7'd95) pit_div <= 7'd0;
-		else                     pit_div <= pit_div + 7'd1;
-	end
-
-	assign pit_out0 = 1'b0;
 
 	wire        snd_rom_req;
 	wire [19:0] snd_rom_addr;
@@ -827,28 +789,22 @@ module seta_core (
 		else if (dt_c50_upd)         io_rdata = {8'h00, dt_upd_q};
 		else if (dt_vx_hit)          io_rdata = dt_vx_q;
 		else if (dt_c50 && io_sel[IO_WRAM2]) io_rdata = dt_nv_q;
-		// palette SRAM first: both bits are set on a palette address
-		else if (io_sel[IO_XRAM])    io_rdata = xram_q;
 		else if (io_sel[IO_PALETTE]) io_rdata = pal_rdata;
-		else if (io_sel[IO_L0VRAM])  io_rdata = io_addr[14] ? l0_tail_q : l0_vram_rdata;
+		else if (io_sel[IO_L0VRAM])  io_rdata = l0_vram_rdata;
 		else if (io_sel[IO_L0CTRL])  io_rdata = l0_ctrl_rdata;
-		else if (io_sel[IO_L1VRAM])  io_rdata = io_addr[14] ? l1_tail_q : l1_vram_rdata;
+		else if (io_sel[IO_L1VRAM])  io_rdata = l1_vram_rdata;
 		else if (io_sel[IO_L1CTRL])  io_rdata = l1_ctrl_rdata;
-		else if (io_sel[IO_SPRCODE]) io_rdata = io_addr[14] ? code_tail_q : code_rdata;
+		else if (io_sel[IO_SPRCODE]) io_rdata = code_rdata;
 		else if (io_sel[IO_SPRYLOW]) io_rdata = {8'h00, ylow_rdata};
 		else if (io_sel[IO_SPRCTRL]) io_rdata = {8'h00, ctrl_rdata};
 		else if (io_sel[IO_X1SND])   io_rdata = x1_rdata;
-		else if (io_sel[IO_WRAM2])   io_rdata = wram2_q;
-		else if (io_sel[IO_INPUTS] && io_extra) io_rdata = extra_in;
 		else if (io_sel[IO_INPUTS])  begin
-			// P1 +0, P2 +2, COINS +4; wits adds P3 +8, P4 +0xa
+			// P1 +0, P2 +2, COINS +4 (calibr50: +8)
 			case (io_addr[3:1])
 				3'd0:    io_rdata = p1_in;
 				3'd1:    io_rdata = p2_in;
 				3'd2:    io_rdata = coins_in;
-				// kamenrid: COINS here
-				3'd4:    io_rdata = coins_at8 ? coins_in : p3_in;
-				3'd5:    io_rdata = p4_in;
+				3'd4:    io_rdata = coins_at8 ? coins_in : 16'hffff;
 				default: io_rdata = 16'hffff;   // active low: nothing pressed
 			endcase
 		end

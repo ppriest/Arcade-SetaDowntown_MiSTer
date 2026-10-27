@@ -119,9 +119,6 @@ def check(path, xml_cache):
             probs.append(f"'{name}': default option {got} ('{ids[got] if got < len(ids) else '?'}'),"
                          f" MAME {dflt_idx} ('{ids[dflt_idx] if dflt_idx < len(ids) else '?'}')")
     for key, (dname, _) in dips.items():
-        # sw[3] bit 0: the core's Flip Screen (build_mra.py CORE_FLIP_SETS)
-        if key == (24, 24) and dname == "Flip Screen":
-            continue
         if key not in used:
             probs.append(f"mra dip '{dname}' at bits {key[0]},{key[1]} is not a MAME switch")
 

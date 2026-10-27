@@ -40,14 +40,10 @@ Nothing below is transcribed by hand except the folder layout:
     title, year,     the driver's own GAME() line
     maker, parent,
     rotation
-    mod byte         rtl/seta_board_cfg.sv's game enum
+    mod byte         rtl/downtown/downtown_board_cfg.sv's game enum
 
-THE PADDING IS REAL, AND IT IS THE PRICE OF A FIXED MAP. LAYOUT_A reserves
-1 MB + 2 MB + 1 MB, so thunderl's 1.6 MB of ROM ships as a 4 MB `.rom` with
-2.4 MB of zeros in the gaps. Making the bases per-game would remove it and is
-recorded in docs/ROADMAP.md as an option; it costs an extra table the RTL and
-this script would both have to agree on, and a second or two of load time is
-not yet worth that.
+Every set loads to LAYOUT_G's fixed bases, so a set smaller than the map
+ships zeros in the gaps.
 """
 import argparse
 import os
@@ -103,107 +99,35 @@ def mame_version():
     return _MAME_VERSION
 
 SDRAM_SV = REPO / "rtl" / "memory" / "seta_sdram_top.sv"
-CFG_SV = REPO / "rtl" / "seta_board_cfg.sv"
+CFG_SV = REPO / "rtl" / "downtown" / "downtown_board_cfg.sv"
+# NOT "Seta_Downtown": MiSTer resolves <rbf>X</rbf> to Arcade-X or X followed
+# by '.' or '_' (Main_MiSTer mra_loader.cpp get_rbf), so the Seta core's
+# <rbf>Seta</rbf> would also match Seta_Downtown_*.rbf
+RBF_NAME = "SetaDowntown"
 ROMS = REPO / "roms"
 OUT_DIR = REPO / "releases"
 # Sets whose .mra goes to unsupported/, outside releases/ so deploy.py does
 # not install it: these overlap with Jotego's cores.
 UNSUPPORTED_SETS = ("calibr50", "arbalest", "metafox")
 
-# The order the regions occupy in the image. Their offsets come from the RTL.
-# ONE ORDER AND ONE BASE TABLE PER LAYOUT, because the two differ in more than
-# whether gfx2 exists: LAYOUT_B's x1snd sits at 0x400000 rather than 0x300000,
-# since qzkklgy2's 2 MB of tiles pushes it up. A .mra built with the wrong
-# layout loads every region after the first mismatch to the wrong address, and
-# the symptom is a black screen with no other clue.
+# The order the regions occupy in the image (seta_sdram_top.sv LAYOUT_G);
+# their offsets come from the RTL.
 LAYOUTS = {
-    "A": (["maincpu", "gfx1", "x1snd"],
-          {"maincpu": "BASE_MAINCPU", "gfx1": "BASE_GFX1_AB",
-           "x1snd": "BASE_X1SND_A"}),
-    "B": (["maincpu", "gfx1", "gfx2", "x1snd"],
-          {"maincpu": "BASE_MAINCPU", "gfx1": "BASE_GFX1_AB",
-           "gfx2": "BASE_GFX2_B", "x1snd": "BASE_X1SND_B"}),
-    "C": (["maincpu", "gfx1", "gfx2", "gfx3", "x1snd"],
-          {"maincpu": "BASE_MAINCPU", "gfx1": "BASE_GFX1_C",
-           "gfx2": "BASE_GFX2_C", "gfx3": "BASE_GFX3_C",
-           "x1snd": "BASE_X1SND_C"}),
-    # The 6bpp sets. D covers five of them; gundhara's 8 MB of sprites gets E
-    # of its own rather than making every other 6bpp .mra ship the padding.
-    "D": (["maincpu", "gfx1", "gfx2", "gfx3", "x1snd"],
-          {"maincpu": "BASE_MAINCPU", "gfx1": "BASE_GFX1_D",
-           "gfx2": "BASE_GFX2_D", "gfx3": "BASE_GFX3_D",
-           "x1snd": "BASE_X1SND_D"}),
-    "E": (["maincpu", "gfx1", "gfx2", "gfx3", "x1snd"],
-          {"maincpu": "BASE_MAINCPU", "gfx1": "BASE_GFX1_E",
-           "gfx2": "BASE_GFX2_E", "gfx3": "BASE_GFX3_E",
-           "x1snd": "BASE_X1SND_E"}),
-    # zombraid: 3 MB tile regions and 4 MB of samples.
-    "F": (["maincpu", "gfx1", "gfx2", "gfx3", "x1snd"],
-          {"maincpu": "BASE_MAINCPU", "gfx1": "BASE_GFX1_F",
-           "gfx2": "BASE_GFX2_F", "gfx3": "BASE_GFX3_F",
-           "x1snd": "BASE_X1SND_F"}),
+    "G": (["maincpu", "sprites", "tiles", "x1snd", "sub"],
+          {"maincpu": "BASE_MAINCPU", "sprites": "BASE_GFX1_AB",
+           "tiles": "BASE_GFX2_G", "x1snd": "BASE_X1SND_G",
+           "sub": "BASE_SUB_G"}),
 }
 
-# Which layout a set uses is decided by the RTL's own game numbering: the Group
-# B sets are the ones seta_board_cfg.sv gives a tile layer to. Listed by name
-# rather than by mod byte so adding a game cannot silently renumber this.
-LAYOUT_B_SETS = {"drgnunit", "stg", "qzkklogy", "qzkklgy2"}
-LAYOUT_C_SETS = {"daioh", "daioha", "rezon", "rezono", "wrofaero",
-                 "msgundam", "msgundam1", "eightfrc", "oisipuzl",
-                 "kamenrid", "magspeed",
-                 # blandia: 4 MB of sprites is what C sizes gfx1 for, and its
-                 # 6bpp tile regions are 1.5 MB each -- D would not fit gfx1.
-                 "blandia", "blandiap"}
-LAYOUT_D_SETS = {"zingzip", "extdwnhl", "sokonuke", "jjsquawk", "jjsquawko",
-                 "madshark"}
-LAYOUT_E_SETS = {"gundhara", "gundharac"}
-LAYOUT_F_SETS = {"zombraid"}
-
-# Battery-backed RAM, bytes. zombraid: the 128 low-lane bytes of
-# 0x300100-0x3001ff, saved as the 256-byte window (docs/ROADMAP.md).
-NVRAM_SETS = {"zombraid": 256,
-              # calibr50_map's "nvram" share, 0x200000-0x200fff (downtown.cpp)
-              "calibr50": 4096}
-
-# Button layouts that differ from the driver's ports. jjsquawk declares
-# JOY_TYPE1_3BUTTONS, but the game uses two (attack, jump): button 3 is read
-# nowhere, service menu included. rtl/seta_board_cfg.sv gives it layout 0.
-LAYOUT_OVERRIDE = {"jjsquawk": 0, "jjsquawko": 0}
-
-
-# ---------------------------------------------------------------------------
-# downtown.cpp: its own game numbering (downtown_board_cfg.sv), one ROM
-# layout, its own rbf name.
-# ---------------------------------------------------------------------------
-CFG_SV = REPO / "rtl" / "downtown" / "downtown_board_cfg.sv"
-# NOT "Seta_Downtown": MiSTer resolves <rbf>X</rbf> to Arcade-X or X followed
-# by '.' or '_' (Main_MiSTer mra_loader.cpp get_rbf), so the Seta core's
-# <rbf>Seta</rbf> would also match Seta_Downtown_*.rbf
-RBF_NAME = "SetaDowntown"
-LAYOUTS["G"] = (["maincpu", "sprites", "tiles", "x1snd", "sub"],
-                {"maincpu": "BASE_MAINCPU", "sprites": "BASE_GFX1_AB",
-                 "tiles": "BASE_GFX2_G", "x1snd": "BASE_X1SND_G",
-                 "sub": "BASE_SUB_G"})
-
+# Battery-backed RAM, bytes: calibr50_map's "nvram" share, 0x200000-0x200fff
+NVRAM_SETS = {"calibr50": 4096}
 
 def layout_of(setname):
     return "G"
 
 
-def _unused_layout_of(setname):
-    if setname in LAYOUT_F_SETS:
-        return "F"
-    if setname in LAYOUT_E_SETS:
-        return "E"
-    if setname in LAYOUT_D_SETS:
-        return "D"
-    if setname in LAYOUT_C_SETS:
-        return "C"
-    return "B" if setname in LAYOUT_B_SETS else "A"
-
-
-REGION_ORDER = LAYOUTS["A"][0]
-BASE_NAME = LAYOUTS["A"][1]
+REGION_ORDER = LAYOUTS["G"][0]
+BASE_NAME = LAYOUTS["G"][1]
 
 
 # ---------------------------------------------------------------------------
@@ -218,40 +142,14 @@ def read_sdram_map():
         bases[m.group(1)] = int(m.group(2).replace("_", ""), 16)
     missing = sorted({n for _, tbl in LAYOUTS.values() for n in tbl.values()}
                      - set(bases))
-    # BASE_SUB_G sits inside the module body; the regex above reads it too
     if missing:
         sys.exit(f"{SDRAM_SV.name} does not define {', '.join(missing)}")
     return bases
 
 
-# Clones that run on a PARENT'S board config unchanged, so they need no enum
-# value and no RTL arm of their own -- only a .mra that selects the parent's
-# mod byte.
-#
-# The board config's set-specific content is the ROM geometry: rom_end,
-# code_mask and gfx_half_words all come from the declared region sizes. Each
-# clone below declares byte-for-byte the same ROM_REGION sizes as its parent
-# AND the same machine config in its GAME() line, so nothing the config carries
-# can differ. The check below asserts the region sizes rather than trusting
-# this comment.
-#
-# Deliberately NOT here:
-#   daiohc      machine=wrofaero but daioh-sized graphics -- gfx_half_words
-#               differs from both, so it needs its own arm.
-#   daiohp/p2   machine=daiohp, a config this core does not implement.
-#   thunderlbl, thunderlbl2, blockcarb, msgundamb, triplfun, triplfunk
-#               bootlegs with their own hardware (Z80 + Tetris sound, OKI).
-CLONE_OF = {
-    "daioha":    "daioh",
-    "rezono":    "rezon",
-    "msgundam1": "msgundam",
-    # Phase 4. gundharac is the Chinese set on gundhara's machine config and
-    # jjsquawko the older revision on jjsquawk's; the size check below is what
-    # says their regions really are identical to their parents'.
-    "gundharac": "gundhara",
-    "jjsquawko": "jjsquawk",
-}
-CLONE_OF = {}      # every downtown.cpp set in scope has its own DT_* entry
+# Clones that run on a parent's board config, selecting the parent's mod
+# byte; every downtown.cpp set in scope has its own DT_* entry.
+CLONE_OF = {}
 
 
 def clone_regions_match(child, parent, all_blocks):
@@ -262,10 +160,7 @@ def clone_regions_match(child, parent, all_blocks):
             sys.exit(f"{g}: no ROM_START in the driver")
         return {n: int(sz, 16) for sz, n in re.findall(
             r'ROM_REGION\w*\(\s*(0x[0-9a-fA-F]+)\s*,\s*"([^"]+)"', body)}
-    # ONLY THE REGIONS THE CORE LOADS. gundhara declares a `plds` region for
-    # its undumped PLDs and gundharac does not; nothing in the board config
-    # can depend on that, and refusing over it would hold up a clone whose
-    # graphics and program are identical.
+    # only the regions the core loads
     want = set(LAYOUTS[layout_of(parent)][0])
     a = {k: v for k, v in sizes(child).items() if k in want}
     b = {k: v for k, v in sizes(parent).items() if k in want}
@@ -273,7 +168,7 @@ def clone_regions_match(child, parent, all_blocks):
 
 
 def read_game_enum():
-    """setname -> mod byte, from seta_board_cfg.sv's game_t."""
+    """setname -> mod byte, from downtown_board_cfg.sv's game enum."""
     txt = CFG_SV.read_text(encoding="utf-8", errors="replace")
     out = {}
     # Four or five bits: game_t widened when Group C filled the enum.
@@ -669,12 +564,6 @@ def osd_fit(name, ids):
     return name, ids
 
 
-# Sets with no Flip Screen DIP in MAME's ports (gundhara's program has no
-# flip setting either): the .mra gets the core's own, gated to these games in
-# seta_core.
-CORE_FLIP_SETS = ("gundhara", "oisipuzl")
-
-
 def dip_xml(ports):
     """Derive `bits`, `ids` and the default bytes from MAME's encoding.
 
@@ -752,34 +641,8 @@ def split_ports(ports, setname):
     return [hi, lo, cn]
 
 
-# The six P1/P2 layouts seta.cpp uses across the sets in scope, and the button
-# names that go with each. The code is Seta.sv's input_layout, which assembles
-# the port word; the names are positional -- entry i is joystick bit 4 + i --
-# so the two lists ARE the same mapping written twice and have to agree.
-#
-#   0 JOY2    LRUD at 0-3, B1 B2 at 4-5
-#   1 JOY1    one button
-#   2 JOY3    BUTTON3 at bit 6
-#   3 PANEL4  B3 B4 B1 B2 at 0-3: atehate's default panel, and qzkklgy2
-#   4 PANEL5  PANEL4 plus BUTTON5 at 4, qzkklogy's pause cheat
-#   5 CARDS   magspeed: Card 1-4 at 0-3, B1 B2 at 4-5
-BUTTON_LAYOUTS = {
-    0: ["Button 1", "Button 2"],
-    1: ["Button 1"],
-    2: ["Button 1", "Button 2", "Button 3"],
-    3: ["Button 1", "Button 2", "Button 3", "Button 4"],
-    4: ["Button 1", "Button 2", "Button 3", "Button 4", "Pause (Cheat)"],
-    5: ["Button 1", "Button 2", "Card 1", "Card 2", "Card 3", "Card 4"],
-    6: ["Button 1", "Button 2", "Button 3",
-        "Button 4", "Button 5", "Button 6"],
-    # zombraid: JOY_TYPE1_2BUTTONS' shape with the stick unused, so the core
-    # reads it as layout 0; only the names differ.
-    7: ["Trigger", "Reload"],
-}
-
-
 def dt_buttons(setname, block):
-    """downtown.cpp: Seta.sv's input_layout 0 (common_type1) or 1 (common_type2),
+    """SetaDowntown.sv's input_layout 0 (common_type1) or 1 (common_type2),
     and a rotary joystick on buttons 3 and 4 -- DownTown's 12-position switch
     (IPT_POSITIONAL) or Caliber 50's uPD4701 count (IPT_DIAL), both stepped
     by rtl/downtown/rotary_input.sv."""
@@ -788,84 +651,6 @@ def dt_buttons(setname, block):
         names += ["Rotate Left", "Rotate Right"]
     n = len(names)
     names = names + ["-"] * (6 - n) + ["Start", "Coin", "Pause", "Service"]
-    default = ["A", "B", "X", "Y", "L", "R"][:n] + ["Start", "Select", "L", "R"]
-    return (f'<buttons names="{esc(",".join(names))}" '
-            f'default="{esc(",".join(default))}" count="{n}"/>')
-
-
-def input_layout(setname, block, all_blocks, depth=0):
-    """Which layout a set's P1 port is, read out of the driver.
-
-    Derived rather than tabulated: a hand table is one more thing to keep in
-    step with seta.cpp, and the macros say it outright.
-    """
-    if depth > 4:
-        sys.exit("PORT_INCLUDE nested too deep")
-    if "JOY_TYPE1_1BUTTON" in block:
-        return 1
-    if "JOY_TYPE1_3BUTTONS" in block:
-        # daioh reads buttons 4-6 from a port of its own at 0x500006, so it
-        # is a six-button game with a three-button P1 word.
-        return 6 if 'PORT_START("EXTRA")' in block and "IPT_BUTTON6" in block             else 2
-    if "JOY_TYPE1_2BUTTONS" in block:
-        return 0
-    if "JOY_TYPE2" in block:
-        sys.exit(f"{setname}: JOY_TYPE2 reverses the direction bits and no "
-                 f"in-scope set used it when Seta.sv was written")
-
-    p1 = block.split('PORT_START("P2")')[0]
-    if "PORT_INCLUDE" in block and "IPT_BUTTON" not in p1:
-        m = re.search(r"PORT_INCLUDE\(\s*(\w+)\s*\)", block)
-        if m and m.group(1) in all_blocks:
-            got = input_layout(setname, all_blocks[m.group(1)], all_blocks,
-                               depth + 1)
-            # PORT_MODIFY can take a button away again. qzkklgy2 includes
-            # qzkklogy and then makes bit 4 -- its BUTTON5 pause cheat --
-            # IPT_UNKNOWN, which is the difference between PANEL5 and PANEL4.
-            mod = re.search(r'PORT_MODIFY\(\s*"P1"\s*\)(.*?)(?:PORT_MODIFY|$)',
-                            block, re.S)
-            if got == 4 and mod and re.search(
-                    r"PORT_BIT\(\s*0x0010\s*,[^)]*IPT_UNKNOWN", mod.group(1)):
-                return 3
-            return got
-    if 'PORT_NAME("P1 Card 1")' in p1:
-        return 5
-    if 'PORT_NAME("P1 Trigger")' in p1:
-        return 7
-    # extdwnhl and sokonuke write JOY_TYPE1_1BUTTON's shape out by hand, with
-    # a PORT_2WAY stick and IPT_UNKNOWN where up and down would be. The core
-    # drives those two bits from the pad's up and down; the games read them as
-    # unknown, which is what they read when nothing is pressed.
-    if "IPT_BUTTON1" in p1 and "IPT_BUTTON2" not in p1:
-        return 1
-    if "IPT_BUTTON5" in p1:
-        return 4
-    if "IPT_BUTTON4" in p1:
-        return 3
-    sys.exit(f"{setname}: cannot tell the input layout from its P1 port")
-
-
-def buttons_xml(layout):
-    """The <buttons> element, with Start and Coin at FIXED joystick bits.
-
-    THE NAME LIST IS POSITIONAL: entry i is joystick bit 4 + i. Writing the
-    names in the order a game happens to use them therefore MOVES Start and
-    Coin, and the core reads fixed bits -- so a two-button game put "Start" on
-    the bit the core reads as COIN1, and Coin on a bit nothing read at all.
-    Measured on hardware: pressing Start inserted a coin, and Coin did nothing.
-
-    So the list is padded to keep the positions fixed, which is what
-    Arcade-Psikyo_MiSTer does and why its six-button and three-button sets
-    both work:
-
-        bit  4  5  6  7  8  9  10     11    12     13
-             B1 B2 -  -  -  -  Start  Coin  Pause  Service
-
-    Seta.sv reads exactly those bits. Keep the two in step.
-    """
-    have = BUTTON_LAYOUTS[layout]
-    n = len(have)
-    names = have + ["-"] * (6 - n) + ["Start", "Coin", "Pause", "Service"]
     default = ["A", "B", "X", "Y", "L", "R"][:n] + ["Start", "Select", "L", "R"]
     return (f'<buttons names="{esc(",".join(names))}" '
             f'default="{esc(",".join(default))}" count="{n}"/>')
@@ -1098,11 +883,6 @@ def build_one(setname, mod, bases, gl, all_blocks, dip_blocks, out_dir, write):
         sys.exit(f"DEF_STR not in extract_dips' table: {', '.join(sorted(unknown))}")
     sw = split_ports(ports, setname)
     dips, defaults = dip_xml(sw)
-    if setname in CORE_FLIP_SETS:
-        # sw[3] bit 0: the core rotates the picture 180 degrees (seta_video
-        # force_flip). These boards have no flip DIP.
-        defaults.append(0x00)
-        dips.append(("Flip Screen", "24", "Off,On"))
     lines.append(f'    <switches default="{",".join(f"{b:02X}" for b in defaults)}" base="0">')
     for name, bits, ids in dips:
         dip = f'<dip name="{name}" bits="{bits}" ids="{ids}"/>'

@@ -269,7 +269,7 @@ ddram_phy u_ldr_ddram (
 
 ///////////////////   .mra: mod byte and DIPs   //////////////////
 
-// <rom index="1">: the game (seta_board_cfg.sv)
+// <rom index="1">: the game (downtown_board_cfg.sv)
 reg [7:0] mod_byte = 8'd0;
 always @(posedge clk_sys)
 	if (ioctl_wr && (ioctl_index == 16'd1)) mod_byte <= ioctl_dout;
@@ -278,8 +278,7 @@ always @(posedge clk_sys)
 assign rot_menu_hide = !(mod_byte[4:0] <= 5'd3 || mod_byte[4:0] == 5'd7);
 
 // <switches> (index 254): sw[0] = DSW offset 0 (high byte, SW1), sw[1] =
-// offset 1 (SW2), sw[2] = DIP bits in the COINS port's top nibble, sw[3]
-// bit 0 = the core's Flip Screen on sets with no flip DIP (seta_core).
+// offset 1 (SW2), sw[2] = DIP bits in the COINS port's top nibble.
 reg [7:0] sw[8];
 always @(posedge clk_sys)
 	if (ioctl_wr && (ioctl_index == 16'd254) && !ioctl_addr[24:3])
@@ -289,44 +288,17 @@ wire [15:0] dsw_in = {sw[0], sw[1]};
 
 ///////////////////////   INPUTS   ///////////////////////////////
 
-// Driver ports are active low. seta_port assembles P1/P2 per input_layout:
-//   0 JOY2   LRUD at 0-3 (LEFT bit 0, RIGHT bit 1), B1 B2 at 4-5
-//   1 JOY1   B1 only       2 JOY3   plus BUTTON3 at 6
-//   3 PANEL4 B3 B4 B1 B2 at 0-3    4 PANEL5 plus BUTTON5 at 4
-//   5 CARDS  magspeed Card 1-4 at 0-3, B1 B2 at 4-5
-// Bit 7 is START. MiSTer joystick: 0 R, 1 L, 2 D, 3 U, buttons 1-6 at 4-9,
-// Start 10, Coin 11, Pause 12, Service 13.
-function automatic [7:0] seta_port(input [31:0] j, input [2:0] layout);
-	case (layout)
-		3'd1:    seta_port = {j[10], 1'b0,  1'b0,  j[4],
-		                      j[2],  j[3],  j[0],  j[1]};
-		3'd2:    seta_port = {j[10], j[6],  j[5],  j[4],
-		                      j[2],  j[3],  j[0],  j[1]};
-		3'd3:    seta_port = {j[10], 1'b0,  1'b0,  1'b0,
-		                      j[5],  j[4],  j[7],  j[6]};
-		3'd4:    seta_port = {j[10], 1'b0,  1'b0,  j[8],
-		                      j[5],  j[4],  j[7],  j[6]};
-		3'd5:    seta_port = {j[10], 1'b0,  j[5],  j[4],
-		                      j[9],  j[8],  j[7],  j[6]};
-		default: seta_port = {j[10], 1'b0,  j[5],  j[4],
-		                      j[2],  j[3],  j[0],  j[1]};
-	endcase
-endfunction
-
 wire [2:0] input_layout;
 
-// daioh EXTRA: P1 buttons 4-6 at 0-2, P2 at 3-5
-wire [15:0] extra_in = ~{10'h000,
-	joystick_1[9], joystick_1[8], joystick_1[7],
-	joystick_0[9], joystick_0[8], joystick_0[7]};
-
-// downtown.cpp: input_layout 0 is common_type1 (LRUD at 0-3, as seta_port's
-// JOY2), 1 is common_type2 (UDLR at 0-3). COINS: type1 COIN1 0, COIN2 1,
+// Driver ports are active low. input_layout 0 is common_type1 (LEFT 0,
+// RIGHT 1, UP 2, DOWN 3), 1 is common_type2 (UP 0, DOWN 1, LEFT 2, RIGHT 3);
+// both have B1 B2 at 4-5 and START at 7. COINS: type1 COIN1 0, COIN2 1,
 // START1 2, START2 3, SERVICE1 4, TILT 5; type2 TILT 4, SERVICE1 5, COIN2 6,
-// COIN1 7.
+// COIN1 7. MiSTer joystick: 0 R, 1 L, 2 D, 3 U, buttons 1-6 at 4-9, Start 10,
+// Coin 11, Pause 12, Service 13.
 function automatic [7:0] dt_port(input [31:0] j, input [2:0] layout);
 	dt_port = (layout == 3'd1) ? {j[10], 1'b0, j[5], j[4], j[0], j[1], j[2], j[3]}
-	                           : seta_port(j, 3'd0);
+	                           : {j[10], 1'b0, j[5], j[4], j[2], j[3], j[0], j[1]};
 endfunction
 // downtown.cpp's coins are PORT_IMPULSE(5): a press is five frames of coin,
 // however long the button is held (a held coin miscounted on DownTown and
@@ -379,10 +351,6 @@ wire        dbg_rd_en;
 wire [12:0] dbg_rd_idx;
 wire [31:0] dbg_spr_rd;
 wire pause_core = pause_toggle | status[82] | dbg_rd_en;
-
-// P3/P4: wits only (wits_map 0xb00008, 0xb0000a), MiSTer joysticks 3 and 4
-wire [15:0] p3_in = ~{8'h00, seta_port(joystick_2, input_layout)};
-wire [15:0] p4_in = ~{8'h00, seta_port(joystick_3, input_layout)};
 
 ///////////////////////   THE GAME   /////////////////////////////
 
@@ -450,8 +418,7 @@ seta_core seta_core
 	.ldr_ddr_busy(ldr_ddr_busy), .ldr_ddr_valid(ldr_ddr_valid),
 	.ldr_ddr_rdata(ldr_ddr_rdata),
 
-	.p1_in(p1_in), .p2_in(p2_in), .coins_in(coins_in), .extra_in(extra_in),
-	.p3_in(p3_in), .p4_in(p4_in), .dsw_in(dsw_in), .flip_sw(sw[3][0]),
+	.p1_in(p1_in), .p2_in(p2_in), .coins_in(coins_in), .dsw_in(dsw_in),
 	.rot1(rot_pos[0]), .rot2(rot_pos[1]),
 	.dial1(rot_cnt[0]), .dial2(rot_cnt[1]),
 

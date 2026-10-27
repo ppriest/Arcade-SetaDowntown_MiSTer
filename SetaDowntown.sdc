@@ -99,7 +99,7 @@ set_output_delay -clock sdram_clk_pin -max [expr {$sdram_tDS + $sdram_board}]   
 set_output_delay -clock sdram_clk_pin -min [expr {-$sdram_tDH + $sdram_board_min}] $sdram_outs
 
 # ---------------------------------------------------------------------------
-# Seta_Downtown, Thundercade's YM2203 (jt03:u_ym0 in seta_core): jt12
+# Thundercade's YM2203 (jt03:u_ym0 in seta_core): jt12
 # phase-generator multicycle 2, as Arcade-Fuuki_MiSTer's Fuuki.sdc applies it
 # to the same unmodified jt12.
 # Audit (Fuuki's): jt12_pg.v has one clocked block, under `if (clk_en)`,

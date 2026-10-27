@@ -1,7 +1,7 @@
 // Per-game constants for the downtown.cpp boards, selected by the .mra mod
-// byte: the same outputs as seta_board_cfg.sv (seta_core picks this module
-// under SETA_DOWNTOWN), plus the sub CPU's. Values from each set's
-// machine_config and memory map in MAME's seta/downtown.cpp.
+// byte: what seta_core and the shared Seta chip modules take, plus the sub
+// CPU's. Values from each set's machine_config and memory map in MAME's
+// seta/downtown.cpp.
 
 `default_nettype none
 
