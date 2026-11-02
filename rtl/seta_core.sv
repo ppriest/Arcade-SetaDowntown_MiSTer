@@ -57,6 +57,9 @@ module seta_core (
 	input  wire [15:0] dsw_in,
 	// DownTown's rotary joysticks, positions 0..11
 	input  wire  [3:0] rot1, rot2,
+	// Completed DownTown work-RAM writes provide actual player aim feedback.
+	output reg [1:0] aim_strobe=0,
+	output reg [2:0] aim_actual0=0, aim_actual1=0,
 	// Caliber 50's loop joysticks as the uPD4701 counts them, 4 a position
 	input  wire [11:0] dial1, dial2,
 
@@ -241,6 +244,15 @@ module seta_core (
 	wire [19:1] wram_addr;
 	wire        wram_wel, wram_weh;
 	wire [15:0] wram_wdata;
+ always @(posedge clk) begin
+  aim_strobe<=0;
+  if(reset)begin aim_actual0<=0;aim_actual1<=0;end
+  else if(wram_weh && game==0 && wram_wdata[15:11]==0)begin
+   if({wram_addr,1'b0}==20'h1ef90)begin aim_actual0<=wram_wdata[10:8];aim_strobe[0]<=1;end
+   if({wram_addr,1'b0}==20'h1efd0)begin aim_actual1<=wram_wdata[10:8];aim_strobe[1]<=1;end
+  end
+ end
+
 	logic [15:0] wram_rdata;
 
 	wire        io_req, io_we, io_uds, io_lds;
