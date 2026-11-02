@@ -61,6 +61,25 @@ The goal is the boards MAME covers in `downtown.cpp`, minus the ones that overla
 
 ### Game Notes
 
+DownTown also supports directional aiming with the right analog stick for both players.
+Aim Speed selects Normal, Slow or Instant turn pacing; Aim Deadzone selects
+Normal, Small, Large or Extra Large. Stick Autofire defaults to Off. When On,
+it holds Fire while the aim stick is outside its deadzone (not a rapid-fire
+pulse train). Manual rotary buttons/GRS keys remain available; centre the aim
+stick after manual turning to resume analog aiming. Movement inputs are unchanged.
+Aiming follows the existing HDMI rotation/flip settings; direct video uses the
+native orientation. The DownTown-only options are hidden for the other games.
+
+Controller regression (Icarus Verilog):
+```
+iverilog -g2012 -s downtown_aim_tb -o /tmp/downtown_aim sim/downtown_aim_tb.sv rtl/controls/*.sv
+vvp /tmp/downtown_aim
+```
+This test covers both players, eight directions and four rotations, game-feedback
+convergence, deadzones, turn speeds, autofire, pause and manual rotary controls.
+The PR does not include a new RBF or claim fitted timing/hardware qualification
+for this upstream-only source combination.
+
 * **DownTown** - The "GRS Keystroke Mode" option is for players using the GRS Super Joystick, set to its keystroke mode. 
 
   * When it's on: Keyboard keys turn the stick. The Left and Right arrow keys rotate Player 1's stick, and C and V rotate Player 2's. In keystroke mode the GRS sends its spinner movement as exactly those key presses. When the setting is off, the core ignores these keys.

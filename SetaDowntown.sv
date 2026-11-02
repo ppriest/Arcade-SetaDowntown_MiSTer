@@ -66,6 +66,11 @@ wire       rotate_en = (rot_sel == 2'd0) ? (game_rot != 2'd0)
 wire       rotate_ccw = (rot_sel == 2'd0) ? (game_rot == 2'd2)
                       : (rot_sel == 2'd3);
 wire       flip_180   = status[65];
+// Invert the existing display rotation, then correct the native game compass.
+// Raw/direct video has no framebuffer rotation.
+wire direct_video;
+wire [2:0] aim_screen_to_game = 3'd6 + (direct_video ? 3'd0 :
+    rotate_en ? (rotate_ccw ? 3'd2 : 3'd6) : (flip_180 ? 3'd4 : 3'd0));
 
 // 4:3 screen (3:4 when rotated).
 wire [11:0] base_arx = rotate_en ? 12'd3 : 12'd4;
@@ -119,6 +124,9 @@ localparam CONF_STR = {
 	`CONF_J1
 	"jn,A,B,Start,Select,R;",
 	"v,0;",
+	"H4O[117:116],Aim Speed,Normal,Slow,Instant;",
+	"H4O[119:118],Aim Deadzone,Normal,Small,Large,Extra Large;",
+	"H4O[120],Stick Autofire,Off,On;",
 	"V,v",`BUILD_DATE
 };
 
@@ -157,13 +165,15 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 
 	.buttons(buttons),
 	.status(status),
-	.status_menumask({12'd0, rot_menu_hide, ~status[94], debug_menu_hide, 1'b0}),  // H1 Debug, H2 CRT adjust, H3 rotary
+	.status_menumask({11'd0, mod_byte[4:0]!=0, rot_menu_hide, ~status[94], debug_menu_hide, 1'b0}),  // H1 Debug, H2 CRT adjust, H3 rotary, H4 DownTown aim
 
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1),
 	.joystick_2(joystick_2),
 	.joystick_3(joystick_3),
 	.joystick_l_analog_0(joystick_l_analog_0),
+	.joystick_r_analog_0(ts_r0), .joystick_r_analog_1(ts_r1),
+	.direct_video(direct_video),
 	.joystick_l_analog_1(joystick_l_analog_1),
 
 	.ioctl_download(ioctl_download),
@@ -304,8 +314,8 @@ endfunction
 // however long the button is held (a held coin miscounted on DownTown and
 // Twin Eagle). dt_coin[i] is player i+1's, driven below after core_vb.
 reg  [1:0] dt_coin = 2'b00;
-wire [15:0] p1_in = ~{8'h00, dt_port(joystick_0, input_layout)};
-wire [15:0] p2_in = ~{8'h00, dt_port(joystick_1, input_layout)};
+wire [15:0] p1_in = ~{8'h00, dt_port(joystick_0 | {27'd0,ts_fire0,4'd0}, input_layout)};
+wire [15:0] p2_in = ~{8'h00, dt_port(joystick_1 | {27'd0,ts_fire1,4'd0}, input_layout)};
 wire [15:0] coins_in = (input_layout == 3'd1)
 	? ~{8'h00, dt_coin[0], dt_coin[1], joystick_0[13], 1'b0, 4'h0}
 	: ~{8'h00, 2'b00, 1'b0, joystick_0[13], joystick_1[10], joystick_0[10], dt_coin[1], dt_coin[0]};
@@ -313,6 +323,19 @@ wire [15:0] coins_in = (input_layout == 3'd1)
 // Rotary joysticks: Rotate Left / Rotate Right (buttons 3 and 4), stepping
 // while held, as the Ikari Warriors core. DownTown reads a 12-position switch;
 // Caliber 50 a uPD4701 count, 4 counts a position.
+wire [15:0] ts_r0, ts_r1;
+wire ts_fire0, ts_fire1;
+wire [3:0] ts_rot0, ts_rot1;
+wire [1:0] ts_strobe;
+wire [2:0] ts_actual0, ts_actual1;
+downtown_aim_controls #(.CLOCK_HZ(96000000)) ts_controls (
+    .clk(clk_sys), .reset(reset), .paused(pause_core), .enabled(mod_byte[4:0]==0),
+    .screen_to_game(aim_screen_to_game), .right0(ts_r0), .right1(ts_r1),
+    .speed(status[117:116]), .deadzone(status[119:118]), .autofire(status[120]),
+    .manual_left(rot_step_l), .manual_right(rot_step_r),
+    .actual_strobe(ts_strobe), .actual0(ts_actual0), .actual1(ts_actual1),
+    .rotary0(ts_rot0), .rotary1(ts_rot1), .fire0(ts_fire0), .fire1(ts_fire1)
+);
 wire [1:0] rot_step_l, rot_step_r;
 rotary_input u_rot (
 	.clk(clk_sys), .reset(reset),
@@ -440,7 +463,9 @@ seta_core seta_core
 	.ldr_ddr_rdata(ldr_ddr_rdata),
 
 	.p1_in(p1_in), .p2_in(p2_in), .coins_in(coins_in), .dsw_in(dsw_in),
-	.rot1(rot_pos[0]), .rot2(rot_pos[1]),
+	.aim_strobe(ts_strobe), .aim_actual0(ts_actual0), .aim_actual1(ts_actual1),
+	.rot1(mod_byte[4:0]==0 ? ts_rot0 : rot_pos[0]),
+	.rot2(mod_byte[4:0]==0 ? ts_rot1 : rot_pos[1]),
 	.dial1(rot_cnt[0]), .dial2(rot_cnt[1]),
 
 	.pause_cpu(pause_core),
